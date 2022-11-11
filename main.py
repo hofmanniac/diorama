@@ -375,6 +375,18 @@ def process_go(event):
         cross_direction = "east" if direction == "west" and cross_direction == None else cross_direction
         cross_direction = "west" if direction == "east" and cross_direction == None else cross_direction
 
+        cross_direction = "northeast" if direction == "southwest" and cross_direction == None else cross_direction
+        cross_direction = "southwest" if direction == "northeast" and cross_direction == None else cross_direction
+
+        cross_direction = "northwest" if direction == "southeast" and cross_direction == None else cross_direction
+        cross_direction = "southeast" if direction == "northwest" and cross_direction == None else cross_direction
+
+        cross_direction = "up" if direction == "down" and cross_direction == None else cross_direction
+        cross_direction = "down" if direction == "up" and cross_direction == None else cross_direction
+
+        cross_direction = "inside" if direction == "outside" and cross_direction == None else cross_direction
+        cross_direction = "outside" if direction == "inside" and cross_direction == None else cross_direction
+
         new_location = find_item_by_template(
             {cross_direction: location["item"]})
 
