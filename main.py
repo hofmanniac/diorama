@@ -139,56 +139,6 @@ def get_attribute(item: dict, attribute: str):
     return result
 
 
-def process_go_old(event):
-
-    # find viewpoint character
-    viewpoint = get_attribute(globals, "viewpoint")
-    if viewpoint is None:
-        return
-
-    # find their location
-    character = find_item_by_name(viewpoint)
-    if character is None:
-        return
-
-    # find coord of that location
-    location = find_item_by_name(get_attribute(character, 'location'))
-    if location is None:
-        return
-
-    # increment coordinate
-    coordinates = get_attribute(location, 'coordinates')
-    new_coordinates = copy.deepcopy(coordinates)
-    if event["item"] == "north":
-        new_coordinates[1] += 1
-    elif event["item"] == "south":
-        new_coordinates[1] -= 1
-    elif event["item"] == "east":
-        new_coordinates[0] += 1
-    elif event["item"] == "west":
-        new_coordinates[0] -= 1
-
-    # find location which bounds that coordinate - check current first
-    new_location = None
-    for scene in scenes:
-        for item in scene["items"]:
-            isa = get_attribute(item, "isa")
-            if isa is None:
-                continue
-            test_coordinates = get_attribute(item, "coordinates")
-            if test_coordinates is None:
-                continue
-            if test_coordinates[0] == new_coordinates[0] and test_coordinates[1] == new_coordinates[1]:
-                new_location = item
-                break
-
-    # update location of viewpoint character to that location
-    if new_location is not None:
-        character["location"] = new_location["name"]
-        text = character["name"], "is now in", character["location"]
-        output_text(text)
-
-
 def process_set(event):
     item_name = event["item"]
     globals[item_name] = event["to"]
@@ -372,7 +322,7 @@ def run_game():
 # process_text("start world")
 # process_text("talk to naomi")
 # process_text("load samples/dog.json")
-process_text("load inform7/ch3_1.json")
+process_text("load samples/inform7/ch3_1.json")
 
 run_game()
 
