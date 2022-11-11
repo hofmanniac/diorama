@@ -459,12 +459,12 @@ def run_game():
 
 # process_text("load samples/inform7/ch3_1.json")
 
-# process_text("load samples/inform7/ex_2.json")
+# process_text("load samples/inform7/ex_002.json")
 # process_text("start game")
 
-# process_text("load samples/inform7/ex_3.json")
+# process_text("load samples/inform7/ex_003.json")
 
-process_text("load samples/inform7/ex_4.json")
+process_text("load samples/inform7/ex_004.json")
 
 run_game()
 
