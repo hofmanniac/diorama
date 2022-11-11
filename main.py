@@ -200,10 +200,19 @@ def process_event_old(event):
     return new_effects
 
 
-def output_text(text: str):
-    for char in text:
-        print(str.upper(char), end="")
-        time.sleep(.03)
+def output_text(message):
+
+    messages = []
+    if type(message) is str:
+        messages = [message]
+    elif type(message) is list:
+        messages = message
+
+    for message in messages:
+        for char in message:
+            print(str.upper(char), end="")
+            time.sleep(.03)
+        print(" ", end="")
     print("")
 
 
@@ -226,14 +235,54 @@ def process_text(text):
     assert_event(input_event)
 
 
-# def resolve_value(path: str):
-#     parts = str.split(path, '.')
-#     current = None
-#     for part in parts:
-#         if current is None:
-#             item = find_item_by_name(part)
-#         else:
-#             prop =
+def process_if(event):
+
+    if_part = event["if"]
+    parts = str.split(if_part, ".")
+
+    item = None
+    value = None
+    polarity = True
+    for part in parts:
+        if item is None:
+            if str.startswith(part, "!"):
+                polarity = False
+                part = part[1:]
+            item = find_item_by_name(part)
+        else:
+            value = item[part] if part in item else None
+
+    if value is None:
+        value = False
+
+    if polarity == False:
+        value = not(value)
+
+    if type(value) is bool:
+        if value:
+            return event["do"]
+
+
+def evaluate(value):
+
+    if type(value) is str:
+        return value
+
+    elif type(value) is dict:
+        if "if" in value:
+            effects = process_if(value)
+            return effects
+
+    elif type(value) is list:
+        sub_results = []
+        for sub_value in value:
+            sub_result = evaluate(sub_value)
+            if sub_result is not None:
+                if type(sub_result) is list:
+                    sub_results.extend(sub_result)
+                else:
+                    sub_results.append(sub_result)
+        return sub_results
 
 
 def run_console():
@@ -255,15 +304,17 @@ def describe_current_scene():
     output_text(location_text)
 
     options = find_item_by_name("options")
+    if options is None:
+        options = {}
     brevity = options["brevity"] if "brevity" in options else False
     visited = location["visited"] if "visited" in location else False
 
     if brevity == False or visited == False:
-        description = location["description"]
+        # description = location["description"]
+        description = evaluate(location["description"])
         output_text(description)
 
-    if brevity == True:
-        location["visited"] = True
+    location["visited"] = True
 
     # description = resolve_value("player.location.description")
     # output_text(description)
@@ -411,7 +462,9 @@ def run_game():
 # process_text("load samples/inform7/ex_2.json")
 # process_text("start game")
 
-process_text("load samples/inform7/ex_3.json")
+# process_text("load samples/inform7/ex_3.json")
+
+process_text("load samples/inform7/ex_4.json")
 
 run_game()
 
