@@ -1,11 +1,11 @@
 {
-  "name": "Basic World",
+  "item": "Basic World",
 
   "map": [{ "item": "galley", "n": "bridge" }],
 
   "items": [
     {
-      "name": "world",
+      "item": "world",
       "effects": [
         {
           "action": "start",
@@ -14,13 +14,13 @@
       ]
     },
     {
-      "name": "bridge",
+      "item": "bridge",
       "isa": "location",
       "coordinates": [5, 6],
       "description": "The bridge is full of blinking lights and hums."
     },
     {
-      "name": "galley",
+      "item": "galley",
       "isa": "location",
       "description": "The galley is newer and in good shape. It even has a coffee maker!",
       "coordinates": [5, 5],
@@ -37,7 +37,7 @@
       ]
     },
     {
-      "name": "naomi",
+      "item": "naomi",
       "isa": "person",
       "location": "galley",
       "description": "naomi is female",
@@ -60,7 +60,7 @@
       ]
     },
     {
-      "name": "amos",
+      "item": "amos",
       "isa": "person",
       "location": "galley",
       "effects": [
@@ -81,8 +81,8 @@
         }
       ]
     },
-    { "name": "amos", "isa": "person", "location": "galley" },
-    { "name": "computer", "isa": "object", "location": "galley" },
-    { "name": "holden", "isa": "person", "location": "galley" }
+    { "item": "amos", "isa": "person", "location": "galley" },
+    { "item": "computer", "isa": "object", "location": "galley" },
+    { "item": "holden", "isa": "person", "location": "galley" }
   ]
 }

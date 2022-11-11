@@ -3,7 +3,7 @@
 
   "items": [
     {
-      "name": "dog",
+      "item": "dog",
       "hunger": 0,
       "effects": [
         {

@@ -39,16 +39,18 @@ def parse_text(text):
     return result
 
 
-def unifies(fact: dict, candidate: dict):
+def unifies(template: dict, candidate: dict):
     unifies = True
-    for key in fact.keys():
-        if key == "do":
+    for template_key in template.keys():
+        if template_key == "do":
             continue
-        if key in candidate:
-            if fact[key] != candidate[key]:
+        if template_key in candidate:
+            if template[template_key] != candidate[template_key]:
                 unifies = False
                 break
         else:
+            if template[template_key] == "#-":
+                continue  # ok - missing data
             unifies = False
             break
     return unifies
@@ -67,7 +69,7 @@ def load_scene(parsed_text):
 def process_look(parsed_text):
     for scene in scenes:
         for item in scene["items"]:
-            print(item["name"])
+            print(item["item"])
 
 
 def process_item_effects(event):
@@ -83,7 +85,7 @@ def process_item_effects(event):
             if "effects" not in item:
                 continue
 
-            item_name = item["name"]
+            item_name = item["item"]
 
             for effect in item["effects"]:
 
@@ -107,11 +109,11 @@ def process_item_effects(event):
                     new_effects.extend(do_portion)
                 for new_effect in new_effects:
                     if type(new_effect) is dict:
-                        new_effect["actor"] = item["name"]
+                        new_effect["actor"] = item["item"]
 
-                if len(new_effects) > 0:
-                    output_debug(
-                        {"event": event, "matched": candidate_effect})
+                # if len(new_effects) > 0:
+                #     output_debug(
+                #         {"event": event, "matched": candidate_effect})
 
                 effects.extend(new_effects)
 
@@ -121,7 +123,7 @@ def process_item_effects(event):
 def find_item_by_name(name: str):
     for scene in scenes:
         for item in scene["items"]:
-            if item["name"] == name:
+            if item["item"] == name:
                 return item
     return None
 
@@ -132,6 +134,15 @@ def find_item_by_template(template: dict):
             if unifies(template, item):
                 return item
     return None
+
+
+def find_items_by_template(template: dict):
+    items = []
+    for scene in scenes:
+        for item in scene["items"]:
+            if unifies(template, item):
+                items.append(item)
+    return items
 
 
 def get_attribute(item: dict, attribute: str):
@@ -179,7 +190,7 @@ def process_event_old(event):
     new_effects = []
     for effect in effects:
         # print("EFFECT:", effect)
-        sub_effects = process_event(effect)
+        sub_effects = process_event_old(effect)
         if sub_effects is None:
             continue
         if len(sub_effects) == 0:
@@ -208,10 +219,11 @@ def output_debug(event: dict):
 def process_text(text):
 
     print("")
-    event = parse_text(text)
+    input_event = parse_text(text)
     # print(f"PARSED: '{text}' AS {event}")
+    pprint(input_event)
 
-    process_event(event)
+    assert_event(input_event)
 
 
 # def resolve_value(path: str):
@@ -236,8 +248,22 @@ def describe_current_scene():
 
     # describe the location
     location = get_location_of("player")
-    description = location["description"]
-    output_text(description)
+    if location is None:
+        return
+
+    location_text = location["text"] if "text" in location else location["item"]
+    output_text(location_text)
+
+    options = find_item_by_name("options")
+    brevity = options["brevity"] if "brevity" in options else False
+    visited = location["visited"] if "visited" in location else False
+
+    if brevity == False or visited == False:
+        description = location["description"]
+        output_text(description)
+
+    if brevity == True:
+        location["visited"] = True
 
     # description = resolve_value("player.location.description")
     # output_text(description)
@@ -247,7 +273,7 @@ def describe_current_scene():
         for item in scene["items"]:
             if "location" not in item:
                 continue
-            if item["location"] == location["name"]:
+            if item["location"] == location["item"]:
                 if "description" not in item:
                     continue
                 description = item["description"]
@@ -256,11 +282,17 @@ def describe_current_scene():
 
 def get_location_of(item_name: str):
 
-    # get player's location
+    # get player
     item = find_item_by_name(item_name)
-    location_name = item["location"]
+    if item is None:
+        return None
 
-    # describe the location
+    # get location
+    location_name = item["location"] if "location" in item else None
+    if location_name is None:
+        return None
+
+    # get that location
     location = find_item_by_name(location_name)
     return location
 
@@ -278,6 +310,8 @@ def process_go(event):
 
     # get current location
     location = get_location_of("player")
+    if location is None:
+        return
 
     # check if the new direction is in the current location
     new_location_name = location[direction] if direction in location else None
@@ -291,21 +325,72 @@ def process_go(event):
         cross_direction = "west" if direction == "east" and cross_direction == None else cross_direction
 
         new_location = find_item_by_template(
-            {cross_direction: location["name"]})
+            {cross_direction: location["item"]})
 
         if new_location is not None:
-            new_location_name = new_location["name"]
+            new_location_name = new_location["item"]
 
     if new_location_name is not None:
         update_attribute("player", "location", new_location_name)
+    else:
+        return "You can't go in that direction."
+
+
+def process_find_all(event: dict):
+    effects = []
+    template = event["find-all"]
+    items = find_items_by_template(template)
+    for item in items:
+        actions = event["do"]
+        if type(actions) is not list:
+            actions = [actions]
+        for action in actions:
+            action_copy = copy.deepcopy(action)
+            for key in action_copy.keys():
+                # sub values
+                # todo - quick for now, will make this better
+                action_copy[key] = str.replace(
+                    action_copy[key], "@item.name", item["item"])
+            effects.append(action_copy)
+    return effects
+
+
+def process_say(event: dict):
+    output_text(event["text"])
+
+
+def assert_event(event: dict):
+    '''Run all events and their triggered events until no additional events are triggered.'''
+    event_queue = [event]
+
+    for queued_event in event_queue:
+        sub_effects = process_event(queued_event)
+        if sub_effects is None:
+            continue
+        event_queue.extend(sub_effects)
 
 
 def process_event(event: dict):
 
-    if event["action"] == "load":
-        load_scene(event)
+    effects = None
+
+    if "find-all" in event:
+        effects = process_find_all(event)
+    elif event["action"] == "load":
+        effects = load_scene(event)
     elif event["action"] == "go":
-        process_go(event)
+        effects = process_go(event)
+    elif event["action"] == "say":
+        effects = process_say(event)
+    else:
+        effects = process_item_effects(event)
+
+    if effects is not None and type(effects) is not list:
+        if type(effects) is str:
+            effects = {"action": "say", "text": effects}
+        effects = [effects]
+
+    return effects
 
 
 def run_game():
@@ -313,16 +398,20 @@ def run_game():
     while True:
         describe_current_scene()
         text = input(": ")
-        event = parse_text(text)
-        pprint(event)
-        process_event(event)
+        process_text(text)
 
 
 # process_text("load samples/story1.json")
 # process_text("start world")
 # process_text("talk to naomi")
 # process_text("load samples/dog.json")
-process_text("load samples/inform7/ch3_1.json")
+
+# process_text("load samples/inform7/ch3_1.json")
+
+# process_text("load samples/inform7/ex_2.json")
+# process_text("start game")
+
+process_text("load samples/inform7/ex_3.json")
 
 run_game()
 
