@@ -1,0 +1,26 @@
+{
+  "name": "Dog",
+
+  "items": [
+    {
+      "name": "dog",
+      "hunger": 0,
+      "effects": [
+        {
+          "item": "doorbell",
+          "action": "ring",
+          "do": [{ "action": "say", "phrase": "BARK!" }]
+        },
+        {
+          "action": "pet",
+          "do": [{ "action": "wag", "item": "tail" }]
+        },
+        {
+          "action": "advance",
+          "item": "time",
+          "do": [{ "action": "increase", "prop": "hunger", "by": 1 }]
+        }
+      ]
+    }
+  ]
+}

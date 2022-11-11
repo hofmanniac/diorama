@@ -1,0 +1,88 @@
+{
+  "name": "Basic World",
+
+  "map": [{ "item": "galley", "n": "bridge" }],
+
+  "items": [
+    {
+      "name": "world",
+      "effects": [
+        {
+          "action": "start",
+          "do": [{ "action": "set", "item": "viewpoint", "to": "holden" }]
+        }
+      ]
+    },
+    {
+      "name": "bridge",
+      "isa": "location",
+      "coordinates": [5, 6],
+      "description": "The bridge is full of blinking lights and hums."
+    },
+    {
+      "name": "galley",
+      "isa": "location",
+      "description": "The galley is newer and in good shape. It even has a coffee maker!",
+      "coordinates": [5, 5],
+      "effects": [
+        {
+          "action": "make",
+          "item": "coffee",
+          "do": [
+            "You load up some grounds, pour in the water, and flip it on. The earthy aroma fills the galley. The machine gurgles and your pour yourself a fresh cup of steamy goodness.",
+            { "action": "create", "item": "@coffee" },
+            { "action": "give", "item": "@coffee", "to": "@actor" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "naomi",
+      "isa": "person",
+      "location": "galley",
+      "description": "naomi is female",
+      "effects": [
+        {
+          "action": "ask",
+          "about": "computer",
+          "do": {
+            "action": "say",
+            "target": "I can't seem to get into it. I'm still working on it, boss."
+          }
+        },
+        {
+          "action": "talk to",
+          "do": {
+            "action": "say",
+            "phrase": "You always did have a way with words."
+          }
+        }
+      ]
+    },
+    {
+      "name": "amos",
+      "isa": "person",
+      "location": "galley",
+      "effects": [
+        {
+          "actor": "naomi",
+          "action": "say",
+          "do": {
+            "action": "say",
+            "phrase": "You tell 'em, boss!"
+          }
+        },
+        {
+          "action": "talk to",
+          "do": {
+            "action": "say",
+            "phrase": "Uhhh...I got work to do."
+          }
+        }
+      ]
+    },
+    { "name": "amos", "isa": "person", "location": "galley" },
+    { "name": "computer", "isa": "object", "location": "galley" },
+    { "name": "holden", "isa": "person", "location": "galley" }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "name": "Bic",
+
+  "items": [
+    {
+      "name": "scene",
+      "effects": [
+        {
+          "action": "start",
+          "do": [
+            {
+              "loop": "items",
+              "into": "@item",
+              "do": [
+                {
+                  "if": "@item.description",
+                  "is": "empty",
+                  "do": [
+                    {
+                      "acion": "say",
+                      "phrase": "@item.name has no description"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+
+    { "name": "staff break room", "isa": "room" },
+
+    { "name": "player" },
+
+    {
+      "name": "orange",
+      "carrier": "player",
+      "description": "It's a small hard pinch-skinned thing from the lunch room, probably with lots of pips and no juice."
+    },
+
+    { "name": "bic pen", "carrier": "player" },
+
+    {
+      "name": "napkin",
+      "carrier": "player",
+      "description": "Slightly crumpled."
+    }
+  ]
+}
