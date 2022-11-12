@@ -34,6 +34,8 @@ def parse_text(text):
                 action = action + " " + token
             else:
                 item = token
+        else:
+            item = item + " " + token
 
     result = {"action": action, "item": item}
     return result
@@ -172,6 +174,8 @@ def process_event_old(event):
         process_look(event)
     elif action == "go":
         process_go(event)
+    elif action == "enter":
+        process_enter(event)
     elif action == "set":
         process_set(event)
     elif action == "say":
@@ -311,8 +315,9 @@ def describe_current_scene():
 
     if brevity == False or visited == False:
         # description = location["description"]
-        description = evaluate(location["description"])
-        output_text(description)
+        if "description" in location:
+            description = evaluate(location["description"])
+            output_text(description)
 
     location["visited"] = True
 
@@ -353,6 +358,55 @@ def update_attribute(item_name: str, attribute_name: str, value: any):
     item[attribute_name] = value
 
 
+def fuzzy_match(item: dict, keyword_text: str):
+
+    item_text = item["text"] if "text" in item else None
+    if item_text is None:
+        return False
+
+    if str.lower(item_text) == str.lower(keyword_text):
+        return True
+
+
+def process_enter(event):
+
+    destination_text = event["item"] if "item" in event else None
+    if destination_text is None:
+        return
+
+    location = get_location_of("player")
+    if location is None:
+        return
+
+    # find all locations within this location
+    possible_destinations = find_items_by_template(
+        {"location": location["item"]})
+
+    # figure out which location matches the destination
+    # todo - maybe combine this into find_item_by_template?
+    for possible_destination in possible_destinations:
+        is_match = fuzzy_match(possible_destination, destination_text)
+        if is_match:
+            update_attribute("player", "location",
+                             possible_destination["item"])
+            break
+
+
+def process_exit(event):
+
+    # not used for now, but later could add some "exiting area" events
+    origin_text = event["item"] if "item" in event else None
+    # if origin_text is None:
+    #     return
+
+    location = get_location_of("player")
+    if location is None:
+        return
+
+    exit_location = location["location"]
+    update_attribute("player", "location", exit_location)
+
+
 def process_go(event):
     # which direction should we try to go?
     direction = event["item"] if "item" in event else None
@@ -369,6 +423,7 @@ def process_go(event):
 
     # if not, check other scenes and items for cross-reference location
     if new_location_name is None:
+
         cross_direction = None
         cross_direction = "south" if direction == "north" and cross_direction == None else cross_direction
         cross_direction = "north" if direction == "south" and cross_direction == None else cross_direction
@@ -443,6 +498,10 @@ def process_event(event: dict):
         effects = load_scene(event)
     elif event["action"] == "go":
         effects = process_go(event)
+    elif event["action"] == "enter":
+        effects = process_enter(event)
+    elif event["action"] == "exit":
+        effects = process_exit(event)
     elif event["action"] == "say":
         effects = process_say(event)
     else:
@@ -476,7 +535,10 @@ def run_game():
 
 # process_text("load samples/inform7/ex_003.json")
 
-process_text("load samples/inform7/ex_004.json")
+# process_text("load samples/inform7/ex_004.json")
+
+process_text("load samples/inform7/ex_005.json")
+
 
 run_game()
 
