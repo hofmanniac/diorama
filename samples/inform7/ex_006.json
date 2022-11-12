@@ -1,0 +1,29 @@
+{
+  "name": "Up and Up",
+
+  "items": [
+    { "item": "player", "location": "plain" },
+    {
+      "item": "plain",
+      "text": "The Plain of the Skull",
+      "description": "A vast and trackless plain, enlivened only by the bones of those who have previously tried and failed to cross. Above you is the Endless Tower, which rises half-way to the moon.",
+      "up": "tower"
+    },
+    {
+      "item": "tower",
+      "text": "The Endless Tower",
+      "description": "From up here the Plain of the Skull seems only a small bald patch: the world is round and most of it is covered with trees. Far off to the southwest is a shimmering surface that might be water; but there are no signs of cities or civilizations, only the lizard-skeletons",
+      "effects": [
+        {
+          "action": "go",
+          "do": "You climb... and climb... and climb... The sun sets. The moon rises. The wind begins to blow. You continue to climb..."
+        }
+      ]
+    },
+    {
+      "item": "harness",
+      "text": "a bit of harness",
+      "description": "A strip of worked leather and a loop of metal, scavenged from one of the skeletons on the plain. Without it, you might think your entire quest was in vain."
+    }
+  ]
+}

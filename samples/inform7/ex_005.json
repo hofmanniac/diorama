@@ -1,6 +1,8 @@
 {
   "name": "1691",
 
+  "tests": [["s", "e", "e", "s", "enter the feathers", "exit the feathers"]],
+
   "items": [
     { "item": "player", "location": "fort-james" },
     {

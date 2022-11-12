@@ -215,7 +215,7 @@ def output_text(message):
     for message in messages:
         for char in message:
             print(str.upper(char), end="")
-            time.sleep(.03)
+            # time.sleep(.03)
         print(" ", end="")
     print("")
 
@@ -234,7 +234,7 @@ def process_text(text):
     print("")
     input_event = parse_text(text)
     # print(f"PARSED: '{text}' AS {event}")
-    pprint(input_event)
+    # pprint(input_event)
 
     assert_event(input_event)
 
@@ -408,6 +408,7 @@ def process_exit(event):
 
 
 def process_go(event):
+
     # which direction should we try to go?
     direction = event["item"] if "item" in event else None
     if direction is None:
@@ -420,6 +421,7 @@ def process_go(event):
 
     # check if the new direction is in the current location
     new_location_name = location[direction] if direction in location else None
+    new_location = find_item_by_name(new_location_name)
 
     # if not, check other scenes and items for cross-reference location
     if new_location_name is None:
@@ -449,7 +451,34 @@ def process_go(event):
             new_location_name = new_location["item"]
 
     if new_location_name is not None:
+
+        effects = None
+
+        # process going to location effects
+        # todo - refactor this
+        if "effects" in new_location:
+            for effect in new_location["effects"]:
+                effects = []
+                if unifies(effect, event):
+
+                    do_effects = None
+
+                    if type(effect["do"]) is dict:
+                        do_effects = [effect["do"]]
+                    elif type(effect["do"]) is str:
+                        do_effects = [{"action": "say", "text": effect["do"]}]
+                    else:
+                        do_effects = effect["do"]
+
+                    for do_effect in do_effects:
+                        sub_effects = process_event(do_effect)
+                        if sub_effects is not None:
+                            effects.extend(sub_effects)
+
+        # move the player there
         update_attribute("player", "location", new_location_name)
+
+        return effects
     else:
         return "You can't go in that direction."
 
@@ -523,6 +552,13 @@ def run_game():
         process_text(text)
 
 
+def test_game(inputs: list):
+    for input in inputs:
+        describe_current_scene()
+        print(":", input)
+        process_text(input)
+        time.sleep(2)
+
 # process_text("load samples/story1.json")
 # process_text("start world")
 # process_text("talk to naomi")
@@ -537,9 +573,13 @@ def run_game():
 
 # process_text("load samples/inform7/ex_004.json")
 
-process_text("load samples/inform7/ex_005.json")
+# process_text("load samples/inform7/ex_005.json")
+# test_game(["s", "e", "e", "s", "enter the feathers", "exit the feathers"])
 
+
+process_text("load samples/inform7/ex_006.json")
 
 run_game()
+
 
 # run_console()
