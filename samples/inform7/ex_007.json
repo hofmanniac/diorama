@@ -1,0 +1,30 @@
+{
+  "name": "Starry Void",
+
+  "items": [
+    { "item": "player", "location": "center-ring" },
+    { "item": "center-ring", "text": "Center Ring" },
+    {
+      "item": "booth",
+      "text": "Magician's Booth",
+      "location": "center-ring",
+      "description": {
+        "if": "player.location",
+        "equals": "center-ring",
+        "do": "A magician's booth stands in the corner, painted dark blue with glittering gold stars.",
+        "else": {
+          "if": "booth.closed",
+          "do": "A crack of light indicates the way back out to the center ring.",
+          "else": "The door stands open to the outside."
+        }
+      },
+
+      "effects": [
+        {
+          "action": "close",
+          "do": { "action": "set", "item": "booth.closed", "to": true }
+        }
+      ]
+    }
+  ]
+}
