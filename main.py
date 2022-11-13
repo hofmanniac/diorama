@@ -135,53 +135,6 @@ def process_set(event):
     update_attribute(parts[0], parts[1], value)
 
 
-def process_event_old(event):
-
-    if type(event) is str:
-        output_text(event)
-        return None
-
-    action = get_attribute(event, "action")
-
-    if action is None:
-        return None
-
-    if action == "load":
-        load_scene(event)
-    elif action == "look":
-        process_look(event)
-    elif action == "go":
-        process_go(event)
-    elif action == "enter":
-        process_enter(event)
-    elif action == "set":
-        process_set(event)
-    elif action == "say":
-        text = f"{event['actor']}: \"{event['phrase']}\""
-        output_text(text)
-    else:
-        if "actor" in event:
-            if "item" in event:
-                output_text(
-                    f'{event["actor"]}: {event["action"]} {event["item"]}')
-            elif "prop" in event:
-                output_text(
-                    f'{event["actor"]}: {event["action"]} {event["prop"]}')
-    effects = process_item_effects(event)
-
-    new_effects = []
-    for effect in effects:
-        # print("EFFECT:", effect)
-        sub_effects = process_event_old(effect)
-        if sub_effects is None:
-            continue
-        if len(sub_effects) == 0:
-            continue
-        new_effects.extend(sub_effects)
-
-    return new_effects
-
-
 def output_text(message):
 
     messages = []
@@ -265,41 +218,6 @@ def aggregate(main_list: list, new_value):
         main_list.extend(new_value)
     else:
         main_list.append(new_value)
-
-
-def evaluate(value):
-
-    effects = []
-
-    if type(value) is str:
-        tokens = str.split(value, " ")
-        text = ""
-        for token in tokens:
-            value = token
-            if str.find(token, ".") > 0 and not str.endswith(token, ".") and not str.startswith(token, "."):
-                value = resolve_token_value(token)
-            text = text + str(value) + " "
-        text = str.strip(text)
-        if text == "True":
-            return True
-        elif text == "False":
-            return False
-        else:
-            return text
-
-    elif type(value) is dict:
-        sub_result = process_event(value)
-        aggregate(effects, sub_result)
-
-    elif type(value) is list:
-        for sub_value in value:
-            sub_result = evaluate(sub_value)
-            aggregate(effects, sub_result)
-
-    if len(effects) == 1:
-        return effects[0]
-    else:
-        return effects
 
 
 def get_location_of(item_name: str):
@@ -447,7 +365,8 @@ def process_go(event):
                         do_effects = effect["do"]
 
                     for do_effect in do_effects:
-                        sub_effects = process_event(do_effect)
+                        # sub_effects = process_event(do_effect)
+                        sub_effects = evaluate(do_effect)
                         aggregate(effects, sub_effects)
 
         # move the player there
@@ -482,7 +401,7 @@ def process_find_all(event: dict):
 
 
 def process_event(event: dict):
-
+    '''Executes the actions in the event / action. In general, you should use 'evaluate' instead of this function, and only use this function if you need to run a single action.'''
     effects = None
 
     if "find-all" in event:
@@ -504,12 +423,45 @@ def process_event(event: dict):
     else:
         effects = process_item_effects(event)
 
-    # if effects is not None and type(effects) is not list:
-    #     # if type(effects) is str:
-    #     #     effects = {"action": "say", "text": effects}
-    #     effects = [effects]
-
     return effects
+
+
+def evaluate_text(text: str):
+    tokens = str.split(text, " ")
+    result = ""
+    for token in tokens:
+        if str.find(token, ".") > 0 and not str.endswith(token, ".") and not str.startswith(token, "."):
+            token = resolve_token_value(token)
+        result = result + str(token) + " "
+    result = str.strip(result)
+    if result == "True":
+        return True
+    elif result == "False":
+        return False
+    else:
+        return result
+
+
+def evaluate(value):
+
+    effects = []
+
+    if type(value) is str:
+        return evaluate_text(value)
+
+    elif type(value) is dict:
+        sub_result = process_event(value)
+        aggregate(effects, sub_result)
+
+    elif type(value) is list:
+        for sub_value in value:
+            sub_result = evaluate(sub_value)
+            aggregate(effects, sub_result)
+
+    if len(effects) == 1:
+        return effects[0]
+    else:
+        return effects
 
 
 def assert_event(event: dict):
@@ -517,7 +469,8 @@ def assert_event(event: dict):
     event_queue = [event]
 
     for queued_event in event_queue:
-        sub_effects = process_event(queued_event)
+        # sub_effects = process_event(queued_event)
+        sub_effects = evaluate(queued_event)
         aggregate(event_queue, sub_effects)
 
 
@@ -644,7 +597,7 @@ def run_console():
 # process_text("start game")
 
 
-process_text("load samples/inform7/ex_003.json")
+# process_text("load samples/inform7/ex_003.json")
 
 # process_text("load samples/inform7/ex_004.json")
 # test_game(["s", "n", "s"])
@@ -654,7 +607,7 @@ process_text("load samples/inform7/ex_003.json")
 
 # process_text("load samples/inform7/ex_006.json")
 
-# process_text("load samples/inform7/ex_007.json")
+process_text("load samples/inform7/ex_007.json")
 
 run_game()
 
