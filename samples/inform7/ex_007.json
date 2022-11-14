@@ -9,12 +9,12 @@
       "text": "Magician's Booth",
       "location": "center-ring",
       "description": {
+        "do": "A magician's booth stands in the corner, painted dark blue with glittering gold stars.",
         "if": "player.location",
         "equals": "center-ring",
-        "do": "A magician's booth stands in the corner, painted dark blue with glittering gold stars.",
         "else": {
-          "if": "booth.closed",
           "do": "A crack of light indicates the way back out to the center ring.",
+          "if": "booth.closed",
           "else": "The door stands open to the outside."
         }
       },
@@ -22,7 +22,43 @@
       "effects": [
         {
           "action": "close",
-          "do": { "action": "set", "item": "booth.closed", "to": true }
+          "do": [
+            { "action": "set", "item": "booth.closed", "to": true },
+            "The booth is now closed."
+          ]
+        },
+        {
+          "action": "open",
+          "do": [
+            { "action": "set", "item": "booth.closed", "to": false },
+            "the booth is now open."
+          ]
+        },
+        {
+          "action": "examine",
+          "if": "player.location",
+          "equals": "center-ring",
+          "do": [
+            "It is dark blue and glittering with gold stars.",
+            {
+              "if": "!booth.closed",
+              "do": "The door currently stands open.",
+              "else": "It has been firmly shut."
+            }
+          ]
+        },
+        {
+          "action": "examine",
+          "if": "player.location",
+          "equals": "starry-void",
+          "do": [
+            "The booth door is",
+            {
+              "if": "!booth.closed",
+              "do": "wide open.",
+              "else": "shut, admitting only a thin crack of light."
+            }
+          ]
         }
       ]
     }

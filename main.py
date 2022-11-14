@@ -8,12 +8,13 @@ loop = True
 
 scenes = []
 globals = {}
+debug = False
 
 
 def unifies(template: dict, candidate: dict):
     unifies = True
     for template_key in template.keys():
-        if template_key == "do":
+        if template_key in ['do', 'if', 'else', 'equals']:
             continue
         if template_key in candidate:
             if template[template_key] != candidate[template_key]:
@@ -70,23 +71,34 @@ def process_item_effects(event):
                     continue
 
                 # effect matched - add the effects
+                new_effects = evaluate(candidate_effect)
+                if type(new_effects) is not list:
+                    new_effects = [new_effects]
 
-                do_portion = candidate_effect["do"]
-
-                new_effects = []
-                if type(do_portion) is dict:
-                    new_effects.append(do_portion)
-                elif type(do_portion) is list:
-                    new_effects.extend(do_portion)
                 for new_effect in new_effects:
                     if type(new_effect) is dict:
                         new_effect["actor"] = item["item"]
 
-                # if len(new_effects) > 0:
-                #     output_debug(
-                #         {"event": event, "matched": candidate_effect})
+                effects = aggregate(effects, new_effects)
 
-                effects.extend(new_effects)
+                # new_effects = []
+
+                # if "if" in candidate_effect:
+                #     sub_effects = process_if(candidate_effect)
+                #     aggregate(new_effects, sub_effects)
+                # else:
+                #     do_portion = candidate_effect["do"]
+                #     aggregate(new_effects, do_portion)
+
+                # for new_effect in new_effects:
+                #     if type(new_effect) is dict:
+                #         new_effect["actor"] = item["item"]
+
+                # # if len(new_effects) > 0:
+                # #     output_debug(
+                # #         {"event": event, "matched": candidate_effect})
+
+                # aggregate(effects, new_effects)
 
     return effects
 
@@ -102,7 +114,7 @@ def find_item_by_name(name: str):
 def find_item_by_fuzzy_match(name: str):
     for scene in scenes:
         for item in scene["items"]:
-            if fuzzy_match(item["item"], name):
+            if fuzzy_match(item, name):
                 return item
     return None
 
@@ -146,17 +158,22 @@ def output_text(message):
     for message in messages:
         for char in message:
             print(str.upper(char), end="")
-            # time.sleep(.03)
-        print(" ", end="")
-    print("")
+            time.sleep(.03)
+        if char != '\n':
+            print(" ", end="")
+    # print("")
 
 
-def output_debug(event: dict):
-    # pass
-    text = pformat(event)
+def output_debug(message, event: dict):
+    if debug == False:
+        return
+    # text = pformat(event)
+    # print("")
+    # text = colored(text, 'green')
+    # print(text)
     print("")
-    text = colored(text, 'green')
-    print(text)
+    print(message, ":", sep="")
+    pprint(event)
     print("")
 
 
@@ -189,6 +206,8 @@ def process_if(event):
     passed = False
 
     if_value = evaluate(event["if"])
+    if if_value == "None":
+        if_value = False
 
     equals_clause = event["equals"] if "equals" in event else None
     if equals_clause is not None:
@@ -212,12 +231,22 @@ def process_if(event):
 
 
 def aggregate(main_list: list, new_value):
+
     if new_value is None:
-        return
+        return main_list
+
+    if main_list is None:
+        main_list = []
+
+    if type(main_list) is not list:
+        main_list = [main_list]
+
     if type(new_value) is list:
         main_list.extend(new_value)
     else:
         main_list.append(new_value)
+
+    return main_list
 
 
 def get_location_of(item_name: str):
@@ -344,37 +373,34 @@ def process_go(event):
         if new_location is not None:
             new_location_name = new_location["item"]
 
-    if new_location_name is not None:
+    if new_location_name is not None and new_location is not None:
 
-        effects = None
+        effects = []
 
         # process going to location effects
         # todo - refactor this
         if "effects" in new_location:
             for effect in new_location["effects"]:
-                effects = []
                 if unifies(effect, event):
-
                     do_effects = None
-
-                    if type(effect["do"]) is dict:
-                        do_effects = [effect["do"]]
-                    elif type(effect["do"]) is str:
-                        do_effects = [{"action": "say", "text": effect["do"]}]
-                    else:
+                    if type(effect["do"]) is list:
                         do_effects = effect["do"]
+                    else:
+                        do_effects = [effect["do"]]
 
                     for do_effect in do_effects:
-                        # sub_effects = process_event(do_effect)
                         sub_effects = evaluate(do_effect)
-                        aggregate(effects, sub_effects)
+                        effects = aggregate(effects, sub_effects)
 
         # move the player there
         update_attribute("player", "location", new_location_name)
 
+        # description = describe_current_scene()
+        # aggregate(effects, description)
+
         return effects
     else:
-        return "You can't go in that direction."
+        return ["You can't go in that direction."]
 
 
 def process_say(event: dict):
@@ -400,28 +426,54 @@ def process_find_all(event: dict):
     return effects
 
 
+def process_examine(event):
+    item = find_item_by_fuzzy_match(event["item"])
+    if item is None:
+        return
+    if "description" in item:
+        description = evaluate(item["description"])
+        return description
+
+
 def process_event(event: dict):
     '''Executes the actions in the event / action. In general, you should use 'evaluate' instead of this function, and only use this function if you need to run a single action.'''
-    effects = None
+    output_debug("PROCESSING", event)
 
-    if "find-all" in event:
-        effects = process_find_all(event)
-    elif "if" in event:
-        effects = process_if(event)
-    elif event["action"] == "load":
-        effects = load_scene(event)
-    elif event["action"] == "go":
-        effects = process_go(event)
-    elif event["action"] == "enter":
-        effects = process_enter(event)
-    elif event["action"] == "exit":
-        effects = process_exit(event)
-    elif event["action"] == "say":
-        effects = process_say(event)
-    elif event["action"] == "set":
-        effects = process_set(event)
-    else:
-        effects = process_item_effects(event)
+    if type(event) is str:
+        output_text(event)
+        return
+
+    effects = []
+
+    # process item effects - before action effects
+
+    # process item effects - instead of action effects
+    item_effects = process_item_effects(event)
+    effects = aggregate(effects, item_effects)
+
+    if len(item_effects) == 0:
+
+        action_effects = None
+
+        if event["action"] == "load":
+            action_effects = load_scene(event)
+        elif event["action"] == "go":
+            action_effects = process_go(event)
+        elif event["action"] == "enter":
+            action_effects = process_enter(event)
+        elif event["action"] == "exit":
+            action_effects = process_exit(event)
+        elif event["action"] == "say":
+            action_effects = process_say(event)
+        elif event["action"] == "set":
+            action_effects = process_set(event)
+        elif event["action"] == "examine":
+            action_effects = process_examine(event)
+
+        if action_effects is None:
+            action_effects = []
+
+        effects = aggregate(effects, action_effects)
 
     return effects
 
@@ -444,47 +496,72 @@ def evaluate_text(text: str):
 
 def evaluate(value):
 
-    effects = []
+    results = []
 
     if type(value) is str:
         return evaluate_text(value)
 
     elif type(value) is dict:
-        sub_result = process_event(value)
-        aggregate(effects, sub_result)
+        if "find-all" in value:
+            sub_result = process_find_all(value)
+        elif "if" in value:
+            sub_result = process_if(value)
+        elif "action" in value:
+            sub_result = value["do"]
+        else:
+            sub_result = value
+        results = aggregate(results, sub_result)
 
     elif type(value) is list:
         for sub_value in value:
             sub_result = evaluate(sub_value)
-            aggregate(effects, sub_result)
+            results = aggregate(results, sub_result)
 
-    if len(effects) == 1:
-        return effects[0]
+    if len(results) == 1:
+        return results[0]
     else:
-        return effects
+        return results
 
 
 def assert_event(event: dict):
     '''Run all events and their triggered events until no additional events are triggered.'''
     event_queue = [event]
 
-    for queued_event in event_queue:
-        # sub_effects = process_event(queued_event)
-        sub_effects = evaluate(queued_event)
-        aggregate(event_queue, sub_effects)
+    while len(event_queue) > 0:
+        queued_event = event_queue.pop(0)
+        sub_effects = process_event(queued_event)
+        event_queue = aggregate(event_queue, sub_effects)
+
+    # for queued_event in event_queue:
+    #     sub_effects = process_event(queued_event)
+    #     # sub_effects = evaluate(queued_event)
+    #     new_items = aggregate(event_queue, sub_effects)
+    #     event_queue.extend(new_items)
 
 
 def parse_text(text):
 
     # expand shortcuts
-    if text == "n":
+    if text == "n" or text == "north":
         text = "go north"
-    elif text == "s":
+    elif text == "s" or text == "south":
         text = "go south"
-    elif text == "e":
+    elif text == "e" or text == "east":
         text = "go east"
-    elif text == "w":
+    elif text == "w" or text == "west":
         text = "go west"
+    elif text == "u" or text == "up":
+        text = "go up"
+    elif text == "d" or text == "down":
+        text = "go down"
+    elif text == "ne" or text == "northeast":
+        text = "go northeast"
+    elif text == "nw" or text == "northwest":
+        text = "go northwest"
+    elif text == "se" or text == "southeast":
+        text = "go southeast"
+    elif text == "sw" or text == "southwest":
+        text = "go southwest"
 
     tokens = text.split(" ")
     action = None
@@ -507,7 +584,7 @@ def parse_text(text):
 
 def process_text(text):
 
-    print("")
+    # print("")
     input_event = parse_text(text)
     # print(f"PARSED: '{text}' AS {event}")
     # pprint(input_event)
@@ -526,13 +603,15 @@ def process_text(text):
 
 def describe_current_scene():
 
+    results = []
+
     # describe the location
     location = get_location_of("player")
     if location is None:
         return
 
     location_text = location["text"] if "text" in location else location["item"]
-    output_text(location_text)
+    results = aggregate(results, location_text + "\n")
 
     options = find_item_by_name("options")
     if options is None:
@@ -540,10 +619,13 @@ def describe_current_scene():
     brevity = options["brevity"] if "brevity" in options else False
     visited = location["visited"] if "visited" in location else False
 
+    added_text = False
+
     if brevity == False or visited == False:
         if "description" in location:
             description = evaluate(location["description"])
-            output_text(description)
+            added_text = True
+            results = aggregate(results, description)
 
     location["visited"] = True
 
@@ -559,15 +641,24 @@ def describe_current_scene():
                 if "description" not in item:
                     continue
                 description = evaluate(item["description"])
-                output_text(description)
+                added_text = True
+                results = aggregate(results, description)
+
+    if added_text == True:
+        results = aggregate(results, "\n")
+    return results
 
 
 def run_game():
 
     while True:
-        describe_current_scene()
+        print("")
+        description = describe_current_scene()
+        output_text(description)
         text = input(": ")
+        print("")
         process_text(text)
+        print("")
 
 
 def test_game(inputs: list):
@@ -608,6 +699,9 @@ def run_console():
 # process_text("load samples/inform7/ex_006.json")
 
 process_text("load samples/inform7/ex_007.json")
+
+# process_text("load samples/inform7/ex_008.json")
+
 
 run_game()
 
