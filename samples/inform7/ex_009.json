@@ -1,0 +1,40 @@
+{
+  "name": "The Unbuttoned Elevator Affair",
+
+  "items": [
+    { "item": "player", "location": "uncle-hq" },
+    {
+      "item": "uncle-hq",
+      "text": "UNCLE Headquarters",
+      "description": "The steel nerve-center of the free world's battle against the Technological Hierarchy for the Removal of Undesirables and the Subjugation of Humanity. Being against technology, we have only a very simple elevator to the east."
+    },
+    {
+      "item": "tailor-shop",
+      "text": "Del Floria's Tailor Shop",
+      "description": "Only trained anti-THRUSH agents recognise the booth in the east wall as a secret elevator."
+    },
+    {
+      "item": "elevator",
+      "text": "The Secret Elevator",
+      "west": "uncle-hq",
+      "effects": [
+        {
+          "action": "go",
+          "do": [
+            "The doors automatically close, there is a rush of motion, and they open again.",
+            {
+              "action": "set",
+              "item": "elevator.west",
+              "to": {
+                "if": "elevator.west",
+                "equals": "uncle-hq",
+                "do": "tailor-shop",
+                "else": "uncle-hq"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

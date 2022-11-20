@@ -143,7 +143,7 @@ def get_attribute(item: dict, attribute: str):
 
 def process_set(event):
     parts = str.split(event["item"], ".")
-    value = event["to"]
+    value = evaluate(event["to"])
     update_attribute(parts[0], parts[1], value)
 
 
@@ -507,7 +507,10 @@ def evaluate(value):
         elif "if" in value:
             sub_result = process_if(value)
         elif "action" in value:
-            sub_result = value["do"]
+            if value["action"] == "set":
+                sub_result = value
+            else:
+                sub_result = value["do"]
         else:
             sub_result = value
         results = aggregate(results, sub_result)
@@ -687,7 +690,6 @@ def run_console():
 # process_text("load samples/inform7/ex_002.json")
 # process_text("start game")
 
-
 # process_text("load samples/inform7/ex_003.json")
 
 # process_text("load samples/inform7/ex_004.json")
@@ -698,9 +700,12 @@ def run_console():
 
 # process_text("load samples/inform7/ex_006.json")
 
-process_text("load samples/inform7/ex_007.json")
+# process_text("load samples/inform7/ex_007.json")
 
 # process_text("load samples/inform7/ex_008.json")
+
+
+process_text("load samples/inform7/ex_009.json")
 
 
 run_game()
