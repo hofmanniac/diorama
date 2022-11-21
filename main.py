@@ -17,9 +17,19 @@ def unifies(template: dict, candidate: dict):
         if template_key in ['do', 'if', 'else', 'equals']:
             continue
         if template_key in candidate:
-            if template[template_key] != candidate[template_key]:
+            if candidate[template_key] is None and template[template_key] is not None:
                 unifies = False
                 break
+            if type(candidate[template_key]) is str:
+                if template[template_key] != candidate[template_key]:
+                    unifies = False
+                    break
+            elif type(candidate[template_key]) is dict:
+                item = candidate[template_key]
+                if "item" in candidate[template_key]:
+                    if template[template_key] != item["item"]:
+                        unifies = False
+                        break
         else:
             if template[template_key] == "#-":
                 continue  # ok - missing data
@@ -75,9 +85,9 @@ def process_item_effects(event):
                 if type(new_effects) is not list:
                     new_effects = [new_effects]
 
-                for new_effect in new_effects:
-                    if type(new_effect) is dict:
-                        new_effect["actor"] = item["item"]
+                # for new_effect in new_effects:
+                #     if type(new_effect) is dict:
+                #         new_effect["actor"] = item["item"]
 
                 effects = aggregate(effects, new_effects)
 
@@ -112,10 +122,15 @@ def find_item_by_name(name: str):
 
 
 def find_item_by_fuzzy_match(name: str):
+    name = str.replace(name, "the ", "")
     for scene in scenes:
         for item in scene["items"]:
             if fuzzy_match(item, name):
                 return item
+            if "aka" in item:
+                for aka_item in item["aka"]:
+                    if str.lower(aka_item) == str.lower(name):
+                        return item
     return None
 
 
@@ -158,7 +173,7 @@ def output_text(message):
     for message in messages:
         for char in message:
             print(str.upper(char), end="")
-            time.sleep(.03)
+            # time.sleep(.03)
         if char != '\n':
             print(" ", end="")
     # print("")
@@ -427,7 +442,8 @@ def process_find_all(event: dict):
 
 
 def process_examine(event):
-    item = find_item_by_fuzzy_match(event["item"])
+    # item = find_item_by_name(event["item"])
+    item = event["item"]
     if item is None:
         return
     if "description" in item:
@@ -501,6 +517,9 @@ def evaluate(value):
     if type(value) is str:
         return evaluate_text(value)
 
+    elif type(value) is bool:
+        return value
+
     elif type(value) is dict:
         if "find-all" in value:
             sub_result = process_find_all(value)
@@ -510,7 +529,10 @@ def evaluate(value):
             if value["action"] == "set":
                 sub_result = value
             else:
-                sub_result = value["do"]
+                if "do" in value:
+                    sub_result = value["do"]
+                else:
+                    sub_result = value
         else:
             sub_result = value
         results = aggregate(results, sub_result)
@@ -535,11 +557,69 @@ def assert_event(event: dict):
         sub_effects = process_event(queued_event)
         event_queue = aggregate(event_queue, sub_effects)
 
-    # for queued_event in event_queue:
-    #     sub_effects = process_event(queued_event)
-    #     # sub_effects = evaluate(queued_event)
-    #     new_items = aggregate(event_queue, sub_effects)
-    #     event_queue.extend(new_items)
+
+def find_items_by_word(text: str):
+
+    items = None
+    effects = None
+
+    for scene in scenes:
+
+        for word in scene["words"]:
+
+            word_text = word["word"]
+
+            search_for_word = True if str.lower(
+                word_text) == str.lower(text) else False
+
+            if search_for_word == False and "aka" in word:
+                if type(word["aka"]) is list:
+                    search_for_word = True if str.lower(
+                        text) in [str.lower(aka) for aka in word["aka"]] else False
+                elif type(word["aka"]) is str:
+                    search_for_word = True if str.lower(
+                        text) == str.lower(word["aka"]) else False
+
+            if search_for_word:
+
+                # find items that are this type of word (isa)
+                sub_items = find_items_by_template({"isa": word_text})
+                if sub_items is None:
+                    continue
+
+                # check if we found multiple matches for singular word
+                if len(sub_items) > 1 and "plural-of" not in word:
+                    return None, {"ask": "Which " + text + "?"}
+
+                # else keep collecting all matched items
+                else:
+                    items = aggregate(items, sub_items)
+
+    return items, effects
+
+
+def find_item_by_text(text: str):
+
+    if text is None:
+        return None, None
+
+    # find item by fuzzy match (text and akas)
+    resolved_item = find_item_by_fuzzy_match(text)
+
+    # find item by item name
+    if resolved_item is None:
+        resolved_item = find_item_by_name(text)
+
+    # # pull name out of resolved
+    # if resolved_item is not None:
+    #     resolved_item = resolved_item["item"]
+
+    # try by word lookups e.g. {"word": "vehicle", "aka": ["car", "truck"]}
+    if resolved_item is None:
+        resolved_item, effect = find_items_by_word(text)
+        return resolved_item, effect
+
+    return resolved_item, None
 
 
 def parse_text(text):
@@ -568,40 +648,64 @@ def parse_text(text):
 
     tokens = text.split(" ")
     action = None
-    item = None
+    item_text = None
 
     for token in tokens:
         if action is None:
             action = token
-        elif item is None:
+        elif token == "on" or token == "off":
+            action += " " + token
+        elif item_text is None:
             if token == "to":
                 action = action + " " + token
             else:
-                item = token
+                item_text = token
         else:
-            item = item + " " + token
+            item_text = item_text + " " + token
 
-    result = {"action": action, "item": item}
+    if action == "x":
+        action = "examine"
+
+    if action is None or item_text is None:
+        return None
+
+    result = {"action": action, "item": item_text}
     return result
 
 
-def process_text(text):
+def process_text(text, ask=None):
 
-    # print("")
     input_event = parse_text(text)
     # print(f"PARSED: '{text}' AS {event}")
     # pprint(input_event)
 
-    # if "item" in input_event:
-    #     input_item = input_event["item"]
-    #     item = find_item_by_name(input_item)
-    #     if item is None:
-    #         item = find_item_by_fuzzy_match(input_item)
-    #     if item is not None:
-    #         input_event["referenced_item"] = input_item
-    #         input_event["item"] = item["item"]
+    # if could not parse the text and an ask exists, try using that
+    if input_event is None and ask is not None:
+        input_event = ask["place-answer-into"]
+        for key in input_event.keys():
+            if input_event[key] == "#":
+                input_event[key] = text
 
-    assert_event(input_event)
+    item_text = input_event["item"]
+    resolved_item, effect = find_item_by_text(item_text)
+
+    if effect is not None and "ask" in effect:
+        input_event["item"] = "#"
+        effect["place-answer-into"] = input_event
+        return effect
+
+    # if still not resolved
+    # load needs this!
+    if resolved_item is None:
+        resolved_item = item_text
+    else:
+        input_event["item"] = resolved_item
+
+    if "ask" in input_event:
+        return input_event
+
+    elif "action" in input_event:
+        assert_event(input_event)
 
 
 def describe_current_scene():
@@ -654,14 +758,20 @@ def describe_current_scene():
 
 def run_game():
 
+    ask = None
+
     while True:
-        print("")
-        description = describe_current_scene()
-        output_text(description)
+        if ask is None:
+            print("")
+            description = describe_current_scene()
+            output_text(description)
+        else:
+            if "ask" in ask:
+                output_text(ask["ask"] + "\n")
         text = input(": ")
         print("")
-        process_text(text)
-        print("")
+        ask = process_text(text, ask)
+        # print("")
 
 
 def test_game(inputs: list):
@@ -677,7 +787,7 @@ def run_console():
 
     while(loop):
         text = input("YOU: ")
-        process_text(text)
+        result = process_text(text)
         process_text("advance time")
 
 # process_text("load samples/story1.json")
@@ -687,25 +797,29 @@ def run_console():
 
 # process_text("load samples/inform7/ch3_1.json")
 
-# process_text("load samples/inform7/ex_002.json")
+# process_text("load samples/inform7/chapter_3/ex_002.json")
 # process_text("start game")
 
-# process_text("load samples/inform7/ex_003.json")
+# process_text("load samples/inform7/chapter_3/ex_003.json")
 
-# process_text("load samples/inform7/ex_004.json")
+# process_text("load samples/inform7/chapter_3/ex_004.json")
 # test_game(["s", "n", "s"])
 
-# process_text("load samples/inform7/ex_005.json")
+# process_text("load samples/inform7/chapter_3/ex_005.json")
 # test_game(["s", "e", "e", "s", "enter the feathers", "exit the feathers"])
 
-# process_text("load samples/inform7/ex_006.json")
+# process_text("load samples/inform7/chapter_3/ex_006.json")
 
-# process_text("load samples/inform7/ex_007.json")
+# process_text("load samples/inform7/chapter_3/ex_007.json")
 
-# process_text("load samples/inform7/ex_008.json")
+# process_text("load samples/inform7/chapter_3/ex_008.json")
+
+# process_text("load samples/inform7/chapter_3/ex_009.json")
 
 
-process_text("load samples/inform7/ex_009.json")
+# process_text("load samples/inform7/chapter_3/ex_010.json")
+
+process_text("load samples/inform7/chapter_3/ex_011.json")
 
 
 run_game()
