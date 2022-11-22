@@ -1,0 +1,43 @@
+{
+	"name": "basic parsing rules",
+
+	"word-categories": {
+		"#direction": [
+			"n",
+			"s",
+			"e",
+			"w",
+			"ne",
+			"se",
+			"nw",
+			"sw",
+			"north",
+			"south",
+			"east",
+			"west",
+			"northeast",
+			"southeast",
+			"northwest",
+			"southwest"
+		],
+		"#prep": ["on", "off"]
+	},
+
+	"phrases": [
+		{ "phrase": "go #direction" },
+		{
+			"phrase": "#action #prep #item",
+			"parse": { "action": "#action #prep", "item": "#item" }
+		},
+		{
+			"phrase": "#action #item #prep",
+			"parse": { "action": "#action #prep", "item": "#item" }
+		},
+		{
+			"phrase": "#action #item to #benefactor"
+		},
+		{ "phrase": "#action #prep", "parse": { "action": "#action #prep" } },
+		{ "phrase": "#action #item" },
+		{ "phrase": "#action" }
+	]
+}

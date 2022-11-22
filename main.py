@@ -30,6 +30,15 @@ def unifies(template: dict, candidate: dict):
                     if template[template_key] != item["item"]:
                         unifies = False
                         break
+            elif type(candidate[template_key]) is list:
+                item_in_list = False
+                for item in candidate[template_key]:
+                    if template[template_key] == item["item"]:
+                        item_in_list = True
+                        break
+                if item_in_list == False:
+                    unifies = False
+                    break
         else:
             if template[template_key] == "#-":
                 continue  # ok - missing data
@@ -38,8 +47,7 @@ def unifies(template: dict, candidate: dict):
     return unifies
 
 
-def load_scene(parsed_text):
-    filename = parsed_text["item"]
+def load_file(filename):
     if filename is None:
         return
     with open(filename) as f:
@@ -175,8 +183,9 @@ def output_text(message):
             print(str.upper(char), end="")
             # time.sleep(.03)
         if char != '\n':
-            print(" ", end="")
-    # print("")
+            # print(" ", end="")
+            print("")
+            print("")
 
 
 def output_debug(message, event: dict):
@@ -441,14 +450,32 @@ def process_find_all(event: dict):
     return effects
 
 
-def process_examine(event):
-    # item = find_item_by_name(event["item"])
-    item = event["item"]
+def listify(item):
     if item is None:
-        return
-    if "description" in item:
-        description = evaluate(item["description"])
-        return description
+        return None
+    if type(item) is list:
+        return item
+    else:
+        return [item]
+
+
+def process_examine(event):
+
+    results = None
+
+    event_item = event["item"] if "item" in event else None
+
+    if event_item is None:
+        results = describe_current_scene()
+
+    else:
+        items = listify(event_item)
+        for item in items:
+            if "description" in item:
+                description = evaluate(item["description"])
+                results = aggregate(results, description)
+
+    return results
 
 
 def process_event(event: dict):
@@ -471,9 +498,7 @@ def process_event(event: dict):
 
         action_effects = None
 
-        if event["action"] == "load":
-            action_effects = load_scene(event)
-        elif event["action"] == "go":
+        if event["action"] == "go":
             action_effects = process_go(event)
         elif event["action"] == "enter":
             action_effects = process_enter(event)
@@ -582,6 +607,9 @@ def find_items_by_word(text: str):
 
             if search_for_word:
 
+                if "plural-of" in word:
+                    word_text = word["plural-of"]
+
                 # find items that are this type of word (isa)
                 sub_items = find_items_by_template({"isa": word_text})
                 if sub_items is None:
@@ -624,6 +652,11 @@ def find_item_by_text(text: str):
 
 def parse_text(text):
 
+    # say - just return the rest of the text
+    if str.startswith(text, "say "):
+        text = text[4:]
+        return {"action": "say", "text": text}
+
     # expand shortcuts
     if text == "n" or text == "north":
         text = "go north"
@@ -657,54 +690,68 @@ def parse_text(text):
             action += " " + token
         elif item_text is None:
             if token == "to":
-                action = action + " " + token
+                action += + " " + token
             else:
                 item_text = token
         else:
             item_text = item_text + " " + token
 
-    if action == "x":
-        action = "examine"
-
-    if action is None or item_text is None:
+    if action is None:
         return None
 
-    result = {"action": action, "item": item_text}
-    return result
+    if action == "x" or action == "look" or action == "l":
+        action = "examine"
+    elif action == "walk" or action == "head":
+        action = "go"
+
+    if item_text is None:
+        return {"action": action}
+
+    return {"action": action, "item": item_text}
 
 
-def process_text(text, ask=None):
+def process_text(text, previous_result=None):
 
     input_event = parse_text(text)
-    # print(f"PARSED: '{text}' AS {event}")
-    # pprint(input_event)
+    output_debug(f"PARSED: '{text}'", input_event)
 
-    # if could not parse the text and an ask exists, try using that
-    if input_event is None and ask is not None:
-        input_event = ask["place-answer-into"]
+    # if an ask came back, send it back to the caller immediately
+    # if input_event is not None and "ask" in input_event:
+    #     return input_event
+
+    # if could not parse the text and an ask exists
+    # try sticking the text into that and use it as the event
+    if input_event is None and previous_result is not None:
+        if type(previous_result) is not dict:
+            pass
+        if "ask" not in previous_result:
+            pass
+        input_event = previous_result["place-answer-into"]
         for key in input_event.keys():
             if input_event[key] == "#":
                 input_event[key] = text
 
-    item_text = input_event["item"]
-    resolved_item, effect = find_item_by_text(item_text)
+    # if there is an item, try to resolve it
+    if "item" in input_event:
 
-    if effect is not None and "ask" in effect:
-        input_event["item"] = "#"
-        effect["place-answer-into"] = input_event
-        return effect
+        # try to resolve the item referenced
+        item_text = input_event["item"]
+        resolved_item, effect = find_item_by_text(item_text)
 
-    # if still not resolved
-    # load needs this!
-    if resolved_item is None:
-        resolved_item = item_text
-    else:
+        # if not able to resolve because a new ask occured (need more info to continue)
+        if effect is not None and "ask" in effect:
+            input_event["item"] = "#"
+            effect["place-answer-into"] = input_event
+            return effect
+
+        # if item is still not resolved
+        if resolved_item is None:
+            return "I don't see anything like that."
+
         input_event["item"] = resolved_item
 
-    if "ask" in input_event:
-        return input_event
-
-    elif "action" in input_event:
+    # now assert the action
+    if "action" in input_event:
         assert_event(input_event)
 
 
@@ -718,7 +765,7 @@ def describe_current_scene():
         return
 
     location_text = location["text"] if "text" in location else location["item"]
-    results = aggregate(results, location_text + "\n")
+    results = aggregate(results, "you are in " + location_text + ":\n")
 
     options = find_item_by_name("options")
     if options is None:
@@ -726,12 +773,12 @@ def describe_current_scene():
     brevity = options["brevity"] if "brevity" in options else False
     visited = location["visited"] if "visited" in location else False
 
-    added_text = False
+    # added_text = False
 
     if brevity == False or visited == False:
         if "description" in location:
             description = evaluate(location["description"])
-            added_text = True
+            # added_text = True
             results = aggregate(results, description)
 
     location["visited"] = True
@@ -748,30 +795,41 @@ def describe_current_scene():
                 if "description" not in item:
                     continue
                 description = evaluate(item["description"])
-                added_text = True
+                # added_text = True
                 results = aggregate(results, description)
 
-    if added_text == True:
-        results = aggregate(results, "\n")
+    # if added_text == True:
+    #     results = aggregate(results, "\n")
     return results
 
 
 def run_game():
 
-    ask = None
+    # start wth an initial description
+    print("")
+    description = describe_current_scene()
+    output_text(description)
 
+    # will store info coming back from processing
+    # to handle UI input and output
+    result = None
+
+    # keep looping FOREVER :)
     while True:
-        if ask is None:
-            print("")
-            description = describe_current_scene()
-            output_text(description)
-        else:
-            if "ask" in ask:
-                output_text(ask["ask"] + "\n")
+
+        # ask for what to do
         text = input(": ")
         print("")
-        ask = process_text(text, ask)
-        # print("")
+
+        # process this
+        result = process_text(text, result)
+
+        # if there's a result, output it
+        if result is not None:
+            if type(result) == str:
+                output_text(result)
+            elif "ask" in result:
+                output_text(result["ask"] + "\n")
 
 
 def test_game(inputs: list):
@@ -819,7 +877,10 @@ def run_console():
 
 # process_text("load samples/inform7/chapter_3/ex_010.json")
 
-process_text("load samples/inform7/chapter_3/ex_011.json")
+# load_file("rules.json")
+load_file("samples/inform7/chapter_3/ex_011.json")
+# process_text("load rules.json")
+# process_text("load samples/inform7/chapter_3/ex_011.json")
 
 
 run_game()
