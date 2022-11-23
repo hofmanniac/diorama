@@ -1,16 +1,40 @@
 {
 	"name": "basic parsing rules",
 
+	"replacements": [
+		{ "replace": ["n"], "with": "north" },
+		{ "replace": ["s"], "with": "south" },
+		{ "replace": ["e"], "with": "east" },
+		{ "replace": ["w"], "with": "west" },
+		{ "replace": ["nw"], "with": "northwest" },
+		{ "replace": ["ne"], "with": "northeast" },
+		{ "replace": ["sw"], "with": "southwest" },
+		{ "replace": ["se"], "with": "southeast" },
+		{ "replace": ["x"], "with": "examine" },
+		{ "replace": ["l"], "with": "examine" },
+		{ "replace": ["look"], "with": "examine", "at-start-only": true },
+		{
+			"replace": ["walk", "head", "travel"],
+			"with": "go",
+			"at-start-only": true
+		}
+	],
+
+	"shortcuts": [
+		{ "shortcut": ["north"], "for": "go north" },
+		{ "shortcut": ["south"], "for": "go south" },
+		{ "shortcut": ["east"], "for": "go east" },
+		{ "shortcut": ["west"], "for": "go west" },
+		{ "shortcut": ["northwest"], "for": "go northwest" },
+		{ "shortcut": ["northeast"], "for": "go northeast" },
+		{ "shortcut": ["southwest"], "for": "go southwest" },
+		{ "shortcut": ["southeast"], "for": "go southeast" },
+		{ "shortcut": ["up"], "for": "go up" },
+		{ "shortcut": ["down"], "for": "go down" }
+	],
+
 	"word-categories": {
 		"#direction": [
-			"n",
-			"s",
-			"e",
-			"w",
-			"ne",
-			"se",
-			"nw",
-			"sw",
 			"north",
 			"south",
 			"east",
@@ -18,13 +42,20 @@
 			"northeast",
 			"southeast",
 			"northwest",
-			"southwest"
+			"southwest",
+			"up",
+			"down"
 		],
-		"#prep": ["on", "off"]
+		"#prep": ["on", "off", "to", "from"]
 	},
 
 	"phrases": [
+		{ "phrase": "say #text" },
 		{ "phrase": "go #direction" },
+		{
+			"phrase": "#action #item to #to"
+		},
+		{ "phrase": "#action #prep", "parse": { "action": "#action #prep" } },
 		{
 			"phrase": "#action #prep #item",
 			"parse": { "action": "#action #prep", "item": "#item" }
@@ -33,10 +64,6 @@
 			"phrase": "#action #item #prep",
 			"parse": { "action": "#action #prep", "item": "#item" }
 		},
-		{
-			"phrase": "#action #item to #benefactor"
-		},
-		{ "phrase": "#action #prep", "parse": { "action": "#action #prep" } },
 		{ "phrase": "#action #item" },
 		{ "phrase": "#action" }
 	]
