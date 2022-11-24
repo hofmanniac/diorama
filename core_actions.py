@@ -15,7 +15,7 @@ class CoreActions:
 
         results = []
 
-        # describe the location
+        # get the current location
         location = self.diorama.get_location_of("player")
         if location is None:
             return
@@ -55,9 +55,33 @@ class CoreActions:
                     # added_text = True
                     results = self.util.aggregate(results, description)
 
+        contents_description = self.describe_location_contents()
+        results = self.util.aggregate(results, contents_description)
+
         # if added_text == True:
         #     results = aggregate(results, "\n")
         return results
+
+    def describe_location_contents(self) -> list:
+        # get the current location
+        location = self.diorama.get_location_of("player")
+        if location is None:
+            return
+
+        items = self.diorama.find_items_by_template(
+            {"location": location["item"]})
+
+        if len(items) > 0:
+            text = ""
+            for item in items:
+                if item["item"] == "player":
+                    continue
+                item_name = item["text"] if "text" in item else item["item"]
+                text += item_name + ", "
+            text = str.removesuffix(text, ", ")
+            if len(text) > 0:
+                text = "\nyou see " + text
+            return text
 
     def process_enter(self, event):
 
@@ -163,8 +187,10 @@ class CoreActions:
             self.diorama.update_attribute(
                 "player", "location", new_location_name)
 
-            # description = describe_current_scene()
-            # aggregate(effects, description)
+            # new_location_text = new_location_name["text"] if "text" in new_location else new_location_name
+            # self.util.aggregate(effects, new_location_text)
+            description = self.describe_current_scene()
+            self.util.aggregate(effects, description)
 
             return effects
         else:
@@ -196,6 +222,9 @@ class CoreActions:
                 if "description" in item:
                     description = self.diorama.evaluate(item["description"])
                     results = self.util.aggregate(results, description)
+                else:
+                    results = self.util.aggregate(
+                        results, "you see nothing special.")
 
         return results
 

@@ -1,6 +1,7 @@
 from diorama_engine import DioramaEngine
 from phrase_parser import Parser
 
+
 def test_engine():
     diorama_engine = DioramaEngine()
     diorama_engine.use_parser("parsing.json")
@@ -31,11 +32,12 @@ def test_engine():
 
     # process_text("load samples/inform7/chapter_3/ex_009.json")
 
-
     # process_text("load samples/inform7/chapter_3/ex_010.json")
 
     # load_file("rules.json")
-    diorama_engine.load_file("samples/inform7/chapter_3/ex_011.json")
+    # diorama_engine.load_file("samples/inform7/chapter_3/ex_011.json")
+    diorama_engine.load_file("samples/inform7/chapter_3/ex_012.json")
+
     # process_text("load rules.json")
     # process_text("load samples/inform7/chapter_3/ex_011.json")
 
@@ -43,14 +45,15 @@ def test_engine():
 
     # run_console()
 
+
 def test_parser():
-    
+
     parser = Parser()
     parser.load_file("parsing.json")
-    
+
     parser.run_console()
-    
-# test_engine()
 
-test_parser()
 
+test_engine()
+
+# test_parser()

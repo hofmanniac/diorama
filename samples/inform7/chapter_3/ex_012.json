@@ -1,0 +1,28 @@
+{
+	"name": "Midsummer Day",
+
+	"items": [
+		{ "item": "player", "location": "garden" },
+		{
+			"item": "garden",
+			"text": "the garden",
+			"east": "gazebo",
+			"up": "treehouse"
+		},
+		{ "item": "gazebo" },
+		{ "item": "treehouse", "text": "the treehouse" },
+		{
+			"item": "billiards-table",
+			"text": "a billiards table",
+			"location": "gazebo"
+		},
+		{ "item": "trophy-cup", "text": "a Trophy Cup", "on": "billiards-table" },
+		{ "item": "starting-pistal", "location": "cup" },
+		{
+			"item": "cardboard-box",
+			"text": "a cardboard box",
+			"isa": "container",
+			"location": "treehouse"
+		}
+	]
+}

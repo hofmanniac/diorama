@@ -186,16 +186,21 @@ class Diorama:
             return True
         else:
             parts = str.split(item_text, " ")
+            tokens = str.split(keyword_text, " ")
             score = 0
             for part in parts:
-                if str.lower(part) == str.lower(keyword_text):
-                    score += 1
+                for token in tokens:
+                    if str.lower(part) == str.lower(token):
+                        score += 1
             if score >= 1:
                 return True
 
         return False
 
     def find_items_by_word(self, text: str):
+
+        if "words" not in self.scenes:
+            return None, None
 
         items = None
         effects = None
