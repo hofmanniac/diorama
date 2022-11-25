@@ -1,4 +1,3 @@
-import json
 import copy
 import time
 from pprint import pprint, pformat
@@ -20,14 +19,6 @@ class DioramaEngine:
 
     def __init__(self) -> None:
         pass
-
-    def load_file(self, filename) -> None:
-        if filename is None:
-            return
-        with open(filename) as f:
-            scene = json.load(f)
-            self.diorama.scenes.append(scene)
-            # print("LOADED:", filename)
 
     def process_item_effects(self, event) -> list:
 
@@ -76,7 +67,7 @@ class DioramaEngine:
             for char in message:
                 print(str.upper(char), end="")
                 # time.sleep(.03)
-            if char != '\n':
+            if len(message) > 0 and char != '\n':
                 # print(" ", end="")
                 print("")
                 print("")
@@ -125,7 +116,11 @@ class DioramaEngine:
                 action_effects = self.core_actions.process_set(event)
             elif event["action"] == "examine":
                 action_effects = self.core_actions.process_examine(event)
-
+            elif event["action"] == "take":
+                action_effects = self.core_actions.process_take(event)
+            elif event["action"] == "print":
+                action_effects = self.core_actions.process_print(event)
+                
             if action_effects is None:
                 action_effects = []
 
@@ -237,5 +232,12 @@ class DioramaEngine:
         description = self.core_actions.describe_current_scene()
         self.output_text(description)
 
-    def use_parser(self, filename):
-        self.parser.load_file(filename)
+    def run_test(self, test_name: str):
+        for scene in self.diorama.scenes:
+            if "tests" not in scene:
+                continue
+            for test in scene["tests"]:
+                if test["test"] != test_name:
+                    continue
+                steps = test["steps"]
+                self.run_inputs(steps)

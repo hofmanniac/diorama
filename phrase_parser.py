@@ -11,7 +11,7 @@ class Parser:
         if self.debug:
             print(*args)
 
-    def load_file(self, filename):
+    def load_from_file(self, filename):
         if filename is None:
             return
         with open(filename) as file:

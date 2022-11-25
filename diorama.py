@@ -1,11 +1,21 @@
 from util import Util
 from copy import deepcopy
+import json
 
 
 class Diorama:
 
     scenes = []
     util = Util()
+    viewpoint = None
+
+    def load_from_file(self, filename) -> None:
+        if filename is None:
+            return
+        with open(filename) as f:
+            scene = json.load(f)
+            self.scenes.append(scene)
+            # print("LOADED:", filename)
 
     def evaluate(self, value):
 
@@ -111,13 +121,26 @@ class Diorama:
                 # return event["else"]
                 return self.evaluate(event["else"])
 
-    def get_attribute(self, item: dict, attribute: str):
-        result = item[attribute] if attribute in item else None
+    def get_attribute(self, item: dict, attribute: str, default=None):
+        result = item[attribute] if attribute in item else default
         return result
 
-    def update_attribute(self, item_name: str, attribute_name: str, value: any):
-        item = self.find_item_by_name(item_name)
+    def set_attribute(self, item: any, attribute_name: str, value: any):
+        if item is None:
+            return
+        if item is list:
+            return  # loop here instead?
+
+        if type(item) is str:
+            item = self.find_item_by_text(item)
+            if item is None:
+                return
+
         item[attribute_name] = value
+
+    def remove_attribute(self, item: dict, attribute_name: str):
+        if attribute_name in item:
+            del item[attribute_name]
 
     def find_item_by_name(self, name: str):
         for scene in self.scenes:
@@ -275,3 +298,10 @@ class Diorama:
                         action_copy[key], "@item.name", item["item"])
                 effects.append(action_copy)
         return effects
+
+    def enhance_item_with_concept_info(self, item):
+        
+        # for all concepts
+        
+        # 
+        pass

@@ -13,6 +13,7 @@
 		{ "replace": ["x"], "with": "examine" },
 		{ "replace": ["l"], "with": "examine" },
 		{ "replace": ["look"], "with": "examine", "at-start-only": true },
+		{ "replace": ["get", "pick up"], "with": "take", "at-start-only": true },
 		{
 			"replace": ["walk", "head", "travel"],
 			"with": "go",

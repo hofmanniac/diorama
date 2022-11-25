@@ -53,3 +53,11 @@ class Util:
                 unifies = False
                 break
         return unifies
+
+    def listify(self, item):
+        if item is None:
+            return None
+        if type(item) is list:
+            return item
+        else:
+            return [item]

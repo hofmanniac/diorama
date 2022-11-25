@@ -1,3 +1,4 @@
+from pprint import pprint
 from diorama import Diorama
 from util import Util
 # from copy import deepcopy
@@ -103,8 +104,8 @@ class CoreActions:
             is_match = self.diorama.fuzzy_match(
                 possible_destination, destination_text)
             if is_match:
-                self.diorama.update_attribute("player", "location",
-                                              possible_destination["item"])
+                self.diorama.set_attribute("player", "location",
+                                           possible_destination["item"])
                 break
 
     def process_exit(self, event):
@@ -119,7 +120,7 @@ class CoreActions:
             return
 
         exit_location = location["location"]
-        self.diorama.update_attribute("player", "location", exit_location)
+        self.diorama.set_attribute("player", "location", exit_location)
 
     def process_go(self, event):
 
@@ -184,7 +185,7 @@ class CoreActions:
                             effects = self.util.aggregate(effects, sub_effects)
 
             # move the player there
-            self.diorama.update_attribute(
+            self.diorama.set_attribute(
                 "player", "location", new_location_name)
 
             # new_location_text = new_location_name["text"] if "text" in new_location else new_location_name
@@ -197,15 +198,28 @@ class CoreActions:
             return ["You can't go in that direction."]
 
     def process_say(self, event: dict):
-        self.output_text(event["text"])
+        # self.output_text(event["text"])
+        return event["text"]
 
-    def listify(self, item):
-        if item is None:
-            return None
-        if type(item) is list:
-            return item
-        else:
-            return [item]
+    def process_take(self, event: dict):
+
+        # check if item is portable
+        item = event["item"]
+
+        # if item is portable
+        portable = self.diorama.get_attribute(item, "portable", False)
+        if portable:
+            # then change location to player
+            self.diorama.set_attribute(item, "location", "player")
+
+            # remove previous location (on, in, etc.)
+            self.diorama.remove_attribute(item, "on")
+            self.diorama.remove_attribute(item, "in")
+
+            # report success
+            return "taken."
+
+        return "it won't budge."
 
     def process_examine(self, event):
 
@@ -217,7 +231,7 @@ class CoreActions:
             results = self.describe_current_scene()
 
         else:
-            items = self.listify(event_item)
+            items = self.util.listify(event_item)
             for item in items:
                 if "description" in item:
                     description = self.diorama.evaluate(item["description"])
@@ -231,4 +245,9 @@ class CoreActions:
     def process_set(self, event):
         parts = str.split(event["item"], ".")
         value = self.diorama.evaluate(event["to"])
-        self.diorama.update_attribute(parts[0], parts[1], value)
+        self.diorama.set_attribute(parts[0], parts[1], value)
+
+    def process_print(self, event):
+        item = event["item"]
+        pprint(item)
+        print("")

@@ -16,8 +16,13 @@
 			"text": "a billiards table",
 			"location": "gazebo"
 		},
-		{ "item": "trophy-cup", "text": "a Trophy Cup", "on": "billiards-table" },
-		{ "item": "starting-pistal", "location": "cup" },
+		{
+			"item": "trophy-cup",
+			"text": "a Trophy Cup",
+			"on": "billiards-table",
+			"portable": true
+		},
+		{ "item": "starting-pistol", "location": "cup" },
 		{
 			"item": "cardboard-box",
 			"text": "a cardboard box",
