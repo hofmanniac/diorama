@@ -32,18 +32,12 @@ class CoreActions:
         brevity = options["brevity"] if "brevity" in options else False
         visited = location["visited"] if "visited" in location else False
 
-        # added_text = False
-
         if brevity == False or visited == False:
             if "description" in location:
                 description = self.diorama.evaluate(location["description"])
-                # added_text = True
                 results = self.util.aggregate(results, description)
 
         location["visited"] = True
-
-        # description = resolve_value("player.location.description")
-        # output_text(description)
 
         # describe items in the location
         for scene in self.diorama.scenes:
@@ -60,8 +54,6 @@ class CoreActions:
         contents_description = self.describe_location_contents()
         results = self.util.aggregate(results, contents_description)
 
-        # if added_text == True:
-        #     results = aggregate(results, "\n")
         return results
 
     def describe_location_contents(self) -> list:
@@ -108,9 +100,9 @@ class CoreActions:
         # figure out which location matches the destination
         # todo - maybe combine this into find_item_by_template?
         for possible_destination in possible_destinations:
-            is_match = self.diorama.fuzzy_match(
+            match_score = self.diorama.fuzzy_match_item(
                 possible_destination, destination_text)
-            if is_match:
+            if match_score > 0:
                 self.diorama.set_attribute("player", "location",
                                            possible_destination["item"])
                 break
@@ -247,6 +239,7 @@ class CoreActions:
             text = self.util.textify_list(items_not_portable) + " won't budge."
             text = str.replace(" " + text, " a ", " the ")
             text = str.replace(" " + text, " A ", " The ")
+            text = str.strip(text)
 
             results = self.util.aggregate(results, text)
 

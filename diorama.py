@@ -197,6 +197,54 @@ class Diorama:
                 items = self.util.aggregate(items, scene["items"])
             return items
 
+    def fuzzy_match_text(self, phrase1: str, phrase2: str):
+
+        # could replace this with something more sophisticated, like fuzzywuzzy
+
+        if phrase1 is None or phrase2 is None:
+            return 0
+
+        score = 0
+
+        if str.lower(phrase1) == str.lower(phrase2):
+            phrase1_tokens = str.split(phrase1, " ")
+            score = len(phrase1_tokens)
+        else:
+            phrase1_tokens = str.split(phrase1, " ")
+            phrase2_tokens = str.split(phrase2, " ")
+            for part in phrase1_tokens:
+                for token in phrase2_tokens:
+                    if str.lower(part) == str.lower(token):
+                        score += 1
+
+        return score
+
+    def fuzzy_match_list(self, text: str, list_items: list):
+        '''Match the text against a list of candidate words. Returns a
+        single value of the h8ghest scoring match.'''
+
+        top_score = 0
+        for list_item in list_items:
+            item_score = self.fuzzy_match_text(text, list_item)
+            if item_score > top_score:
+                top_score = item_score
+
+        return top_score
+
+    def fuzzy_match_item(self, text: str, item: dict):
+
+        item_text = item["text"] if "text" in item else None
+        if item_text is None:
+            return False
+
+        text_score = self.fuzzy_match_text(item_text, text)
+        aka_score = self.fuzzy_match_list(
+            text, item["aka"]) if "aka" in item else 0
+        akas_score = self.fuzzy_match_list(
+            text, item["akas"]) if "akas" in item else 0
+
+        return max(text_score, aka_score, akas_score)
+
     def find_items_by_fuzzy_match(self, name: str, stop_after_first: bool = False, from_viewpoint: dict = None) -> Union[list, None]:
 
         items = None
@@ -207,17 +255,13 @@ class Diorama:
 
         for item in search_items:
 
-            if self.fuzzy_match(item, name):
+            fuzzy_match_score = self.fuzzy_match_item(name, item)
+
+            if fuzzy_match_score > 0:
+                item["fuzzy-match-sore"] = fuzzy_match_score
                 items = self.util.aggregate(items, item)
                 if stop_after_first:
                     return items
-
-            if "aka" in item:
-                for aka_item in item["aka"]:
-                    if str.lower(aka_item) == str.lower(name):
-                        items = self.util.aggregate(items, item)
-                        if stop_after_first:
-                            return items
 
         return items
 
@@ -268,27 +312,6 @@ class Diorama:
             resolved_items = self.find_items_by_concept(text)
 
         return resolved_items
-
-    def fuzzy_match(self, item: dict, keyword_text: str):
-
-        item_text = item["text"] if "text" in item else None
-        if item_text is None:
-            return False
-
-        if str.lower(item_text) == str.lower(keyword_text):
-            return True
-        else:
-            parts = str.split(item_text, " ")
-            tokens = str.split(keyword_text, " ")
-            score = 0
-            for part in parts:
-                for token in tokens:
-                    if str.lower(part) == str.lower(token):
-                        score += 1
-            if score >= 1:
-                return True
-
-        return False
 
     def find_items_by_concept(self, text: str):
 
@@ -400,6 +423,23 @@ class Diorama:
 
         return enhanced_item
 
+    def find_concept(self, text):
+        '''Find the highest scoring concept for the given text'''
+        
+        top_concept = None
+        
+        concepts = self.find_concepts(text)
+        if concepts is None:
+            return None
+        
+        top_score = 0
+        for concept in concepts:
+            if concept["match-score"] > top_score:
+                top_score = concept["match-score"]
+                top_concept = concept
+
+        return top_concept
+
     def find_concepts(self, text):
 
         concepts = None
@@ -415,38 +455,26 @@ class Diorama:
 
                 found = False
 
-                if str.lower(new_concept["concept"]) == str.lower(text):
+                score = self.fuzzy_match_text(new_concept["concept"], text)
+                if score > 0:
                     new_concept["matched-qty"] = "singular"
-                    found = True
-
-                elif "aka" in new_concept:
-
-                    if type(new_concept["aka"]) is list:
-                        if str.lower(text) in [str.lower(aka) for aka in new_concept["aka"]]:
-                            new_concept["matched-qty"] = "singular"
-                            found = True
-
-                    elif type(new_concept["aka"]) is str:
-                        if str.lower(text) == str.lower(new_concept["aka"]):
-                            new_concept["matched-qty"] = "singular"
-                            found = True
-
-                if found == False and "akas" in new_concept:
-
-                    if type(new_concept["akas"]) is list:
-                        if str.lower(
-                                text) in [str.lower(aka) for aka in new_concept["akas"]]:
-                            new_concept["matched-qty"] = "plural"
-                            found = True
-
-                    elif type(new_concept["akas"]) is str:
-                        if str.lower(text) == str.lower(new_concept["akas"]):
-                            new_concept["matched-qty"] = "plural"
-                            found = True
-
-                if found:
-
+                    new_concept["match-score"] = score
                     concepts = self.util.aggregate(concepts, new_concept)
+                    continue
+
+                score = self.fuzzy_match_list(text, new_concept["aka"])
+                if score > 0:
+                    new_concept["matched-qty"] = "singular"
+                    new_concept["match-score"] = score
+                    concepts = self.util.aggregate(concepts, new_concept)
+                    continue
+
+                score = self.fuzzy_match_list(text, new_concept["akas"])
+                if score > 0:
+                    new_concept["matched-qty"] = "plural"
+                    new_concept["match-score"] = score
+                    concepts = self.util.aggregate(concepts, new_concept)
+                    continue
 
         return concepts
 
@@ -533,3 +561,49 @@ class Diorama:
                     results = self.util.aggregate(results, item)
 
         return results
+
+    def resolve_and_enhance_item(self, item: dict):
+
+        if "item" not in item:
+            return None
+
+        # try to resolve the item referenced
+        item_text = item["item"]
+        resolved_items = self.find_items_by_text(
+            item_text, self.viewpoint)
+
+        # filter for visible items only
+        resolved_items = self.filter_visible_items(resolved_items)
+
+        # if item is not resolved
+        if resolved_items is None:
+            return "I don't see anything like that.\n"
+
+        # check if we found multiple matches for a singular word
+        # return for clarification on which one to use
+        if resolved_items is not None and len(resolved_items) > 1:
+            self.util.output_debug(
+                "ITEM RESOLUTION: More than one matching item found", debug_flag=self.debug)
+            concept = self.find_concept(item_text)
+            # concepts = self.diorama.find_concepts(item_text)
+            # concept = concepts[0] if concepts is not None else None
+            if (concept is None) or (concept is not None and concept["matched-qty"] == "singular"):
+                self.util.output_debug(
+                    "ITEM RESOLUTION: Concept not found or concept indicates singular word, clarification needed.", debug_flag=self.debug)
+                input_event["item"] = "#"
+                return {"ask": "Which one?", "place-answer-into": item}
+
+        # enhance the items with conceptual information (from isa property)
+        enhanced_items = []
+        for resolved_item in resolved_items:
+            # todo - if next items same concept as previous, could speed this up
+            enhanced_item = self.enhance_item_with_concept_info(
+                resolved_item)
+            enhanced_items = self.util.aggregate(
+                enhanced_items, enhanced_item)
+
+        # reduce to a single item if possible
+        if len(enhanced_items) == 1:
+            enhanced_items = enhanced_items[0]
+
+        item["item"] = enhanced_items

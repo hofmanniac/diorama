@@ -6,6 +6,7 @@ from phrase_parser import Parser
 from core_actions import CoreActions
 from diorama import Diorama
 from util import Util
+from typing import Union
 
 
 class DioramaEngine:
@@ -16,6 +17,7 @@ class DioramaEngine:
     parser = Parser()
     core_actions = CoreActions(diorama)
     util = Util()
+    text_delay = 0.01
 
     def __init__(self) -> None:
         pass
@@ -88,7 +90,8 @@ class DioramaEngine:
         for message in messages:
             for char in message:
                 print(str.upper(char), end="")
-                # time.sleep(.03)
+                if self.text_delay > 0:
+                    time.sleep(self.text_delay)
             if len(message) > 0 and char != '\n':
                 # print(" ", end="")
                 print("")
@@ -150,78 +153,89 @@ class DioramaEngine:
             sub_effects = self.process_event(queued_event)
             event_queue = self.util.aggregate(event_queue, sub_effects)
 
+    def resolve_and_enhance_item(self, item_text: dict) -> Union[None, dict, list]:
+
+        # try to resolve the item referenced
+        resolved_items = self.diorama.find_items_by_text(
+            item_text, self.diorama.viewpoint)
+
+        # filter for visible items only
+        resolved_items = self.diorama.filter_visible_items(resolved_items)
+
+        # if item is not resolved
+        if resolved_items is None:
+            return None
+
+        # enhance the items with conceptual information (from isa property)
+        enhanced_items = []
+        for resolved_item in resolved_items:
+            # todo - if next items same concept as previous, could speed this up
+            enhanced_item = self.diorama.enhance_item_with_concept_info(
+                resolved_item)
+            enhanced_items = self.util.aggregate(enhanced_items, enhanced_item)
+
+        # reduce to a single item if possible
+        if len(enhanced_items) == 1:
+            enhanced_items = enhanced_items[0]
+
+        return enhanced_items
+
     def process_text(self, text, previous_result=None):
 
-        input_event = self.parser.parse_text(text)
-        # input_event = parse_text(text)
+        # parse the text into a more structured form
+        # do this before checking the previous_result in case
+        # the command is instructing to go in a new direction
+        parse_result = self.parser.parse_text(text)
         self.util.output_debug(
-            f"PARSED: '{text}'", input_event, debug_flag=self.debug)
+            f"PARSED: '{text}'", parse_result, debug_flag=self.debug)
 
-        # if an ask came back, send it back to the caller immediately
-        # if input_event is not None and "ask" in input_event:
-        #     return input_event
-
-        # if could not parse the text and an ask exists
+        # if could not parse the text and an previous_result (ask) exists
         # try sticking the text into that and use it as the event
-        if input_event is None and previous_result is not None:
+        if parse_result is None and previous_result is not None:
             if type(previous_result) is not dict:
                 pass
             if "ask" not in previous_result:
                 pass
-            input_event = previous_result["place-answer-into"]
-            for key in input_event.keys():
-                if input_event[key] == "#":
-                    input_event[key] = text
+            parse_result = previous_result["place-answer-into"]
+            for key in parse_result.keys():
+                if parse_result[key] == "#":
+                    parse_result[key] = text
 
-        if input_event is None:
+        # still could not parse - ask to rephrase
+        if parse_result is None:
             return "I don't quite understand that, could you rephrase?"
 
         # if there is an item, try to resolve it
-        if "item" in input_event:
+        if "item" in parse_result:
 
-            # try to resolve the item referenced
-            item_text = input_event["item"]
-            resolved_items = self.diorama.find_items_by_text(
-                item_text, self.diorama.viewpoint)
+            item_text = parse_result["item"]
 
-            # filter for visible items only
-            resolved_items = self.diorama.filter_visible_items(resolved_items)
+            # resolve and enhance with conceptual information
+            resolved_items = self.resolve_and_enhance_item(
+                parse_result["item"])
 
-            # if item is not resolved
             if resolved_items is None:
                 return "I don't see anything like that.\n"
 
             # check if we found multiple matches for a singular word
             # return for clarification on which one to use
-            if resolved_items is not None and len(resolved_items) > 1:
+            if resolved_items is not None and type(resolved_items) is list and len(resolved_items) > 1:
                 self.util.output_debug(
                     "ITEM RESOLUTION: More than one matching item found", debug_flag=self.debug)
-                concepts = self.diorama.find_concepts(item_text)
-                concept = concepts[0] if concepts is not None else None
+                concept = self.diorama.find_concept(item_text)
                 if (concept is None) or (concept is not None and concept["matched-qty"] == "singular"):
                     self.util.output_debug(
                         "ITEM RESOLUTION: Concept not found or concept indicates singular word, clarification needed.", debug_flag=self.debug)
-                    input_event["item"] = "#"
-                    return {"ask": "Which one?", "place-answer-into": input_event}
+                    parse_result["item"] = "#"
+                    return {"ask": "Which one?", "place-answer-into": parse_result}
 
-            # enhance the items with conceptual information (from isa property)
-            enhanced_items = []
-            for resolved_item in resolved_items:
-                # todo - if next items same concept as previous, could speed this up
-                enhanced_item = self.diorama.enhance_item_with_concept_info(
-                    resolved_item)
-                enhanced_items = self.util.aggregate(
-                    enhanced_items, enhanced_item)
-
-            # reduce to a single item if possible
-            if len(enhanced_items) == 1:
-                enhanced_items = enhanced_items[0]
-
-            input_event["item"] = enhanced_items
+            # else we found the item(s) needed to continue
+            elif resolved_items is not None:
+                parse_result["item"] = resolved_items
 
         # now assert the action
-        if "action" in input_event:
-            self.assert_event(input_event)
+        if "action" in parse_result:
+            self.assert_event(parse_result)
 
     def run_console(self):
 
