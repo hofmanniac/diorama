@@ -6,20 +6,20 @@ def test_engine():
     diorama_engine = DioramaEngine()
     diorama_engine.load_parser("parsing.json")
 
-    # process_text("load samples/inform7/ch3_1.json")
-    # process_text("load samples/inform7/chapter_03/ex_002.json")
-    # process_text("load samples/inform7/chapter_03/ex_003.json")
-    # process_text("load samples/inform7/chapter_03/ex_004.json")
+    # file = "samples/inform7/ch3_1.json"
+    # file = "samples/inform7/chapter_03/ex_002.json"
+    # file = "samples/inform7/chapter_03/ex_003.json"
+    # file = "samples/inform7/chapter_03/ex_004.json"
     # test_game(["s", "n", "s"])
 
-    # process_text("load samples/inform7/chapter_03/ex_005.json")
+    # file = "samples/inform7/chapter_03/ex_005.json"
     # test_game(["s", "e", "e", "s", "enter the feathers", "exit the feathers"])
 
-    # process_text("load samples/inform7/chapter_03/ex_006.json")
-    # process_text("load samples/inform7/chapter_03/ex_007.json")
-    # process_text("load samples/inform7/chapter_03/ex_008.json")
-    # process_text("load samples/inform7/chapter_03/ex_009.json")
-    # process_text("load samples/inform7/chapter_03/ex_010.json")
+    # file = "samples/inform7/chapter_03/ex_006.json"
+    # file = "samples/inform7/chapter_03/ex_007.json"
+    # file = "samples/inform7/chapter_03/ex_008.json"
+    # file = "samples/inform7/chapter_03/ex_009.json"
+    # file = "samples/inform7/chapter_03/ex_010.json"
     # diorama_engine.diorama.load_file("samples/inform7/chapter_03/ex_011.json")
 
     # file = "samples/inform7/chapter_03/ex_012.json"

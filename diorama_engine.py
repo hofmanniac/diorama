@@ -34,7 +34,7 @@ class DioramaEngine:
             return
 
         actions = ["go", "enter", "exit", "say",
-                   "set", "examine", "take", "print"]
+                   "set", "examine", "take", "print", "inventory"]
 
         if self.diorama is not None:
             scene_actions = self.diorama.collect_actions()
@@ -94,21 +94,10 @@ class DioramaEngine:
                 print("")
                 print("")
 
-    def output_debug(self, message, event: dict):
-        if self.debug == False:
-            return
-        # text = pformat(event)
-        # print("")
-        # text = colored(text, 'green')
-        # print(text)
-        print("")
-        print(message, ":", sep="")
-        pprint(event)
-        print("")
-
     def process_event(self, event: dict):
         '''Executes the actions in the event / action. In general, you should use 'evaluate' instead of this function, and only use this function if you need to run a single action.'''
-        self.output_debug("PROCESSING", event)
+
+        self.util.output_debug("PROCESS EVENT:", event, debug_flag=self.debug)
 
         if type(event) is str:
             self.output_text(event)
@@ -142,6 +131,8 @@ class DioramaEngine:
                 action_effects = self.core_actions.process_take(event)
             elif event["action"] == "print":
                 action_effects = self.core_actions.process_print(event)
+            elif event["action"] == "inventory":
+                action_effects = self.core_actions.process_inventory(event)
 
             if action_effects is None:
                 action_effects = []
@@ -163,7 +154,8 @@ class DioramaEngine:
 
         input_event = self.parser.parse_text(text)
         # input_event = parse_text(text)
-        self.output_debug(f"PARSED: '{text}'", input_event)
+        self.util.output_debug(
+            f"PARSED: '{text}'", input_event, debug_flag=self.debug)
 
         # if an ask came back, send it back to the caller immediately
         # if input_event is not None and "ask" in input_event:
@@ -189,18 +181,26 @@ class DioramaEngine:
 
             # try to resolve the item referenced
             item_text = input_event["item"]
-            resolved_items = self.diorama.find_items_by_text(item_text)
+            resolved_items = self.diorama.find_items_by_text(
+                item_text, self.diorama.viewpoint)
+
+            # filter for visible items only
+            resolved_items = self.diorama.filter_visible_items(resolved_items)
 
             # if item is not resolved
             if resolved_items is None:
-                return "I don't see anything like that."
+                return "I don't see anything like that.\n"
 
             # check if we found multiple matches for a singular word
             # return for clarification on which one to use
             if resolved_items is not None and len(resolved_items) > 1:
+                self.util.output_debug(
+                    "ITEM RESOLUTION: More than one matching item found", debug_flag=self.debug)
                 concepts = self.diorama.find_concepts(item_text)
                 concept = concepts[0] if concepts is not None else None
                 if (concept is None) or (concept is not None and concept["matched-qty"] == "singular"):
+                    self.util.output_debug(
+                        "ITEM RESOLUTION: Concept not found or concept indicates singular word, clarification needed.", debug_flag=self.debug)
                     input_event["item"] = "#"
                     return {"ask": "Which one?", "place-answer-into": input_event}
 
@@ -244,11 +244,15 @@ class DioramaEngine:
             # engine commands
             if str.lower(text) == "debug on":
                 self.debug = True
+                self.diorama.debug = True
+                self.core_actions.debug = True
                 self.parser.debug = True
                 self.output_text("debug is now on")
                 continue
             elif str.lower(text) == "debug off":
                 self.debug = False
+                self.diorama.debug = False
+                self.core_actions.debug = False
                 self.parser.debug = False
                 self.output_text("debug is now off")
                 continue
@@ -259,7 +263,7 @@ class DioramaEngine:
             # if there's a result, output it
             if result is not None:
                 if type(result) == str:
-                    self.output_text(result)
+                    self.output_text(result + "\n")
                 elif "ask" in result:
                     self.output_text(result["ask"] + "\n")
 

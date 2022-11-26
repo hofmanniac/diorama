@@ -1,15 +1,13 @@
 import json
 from pprint import pprint
+from util import Util
 
 
 class Parser:
 
     parse_config = None
     debug = False
-
-    def output_debug(self, *args):
-        if self.debug:
-            print(*args)
+    util = Util()
 
     def _load_from_file(self, filename):
         if filename is None:
@@ -36,7 +34,8 @@ class Parser:
 
     def unifies(self, template_token, token):
 
-        self.output_debug(".comparing", token, "to", template_token)
+        self.util.output_debug(".comparing", token, "to",
+                               template_token, debug_flag=self.debug, newline=False)
 
         if template_token == "#item":
             word_categories = self.find_word_categories(token)
@@ -109,8 +108,8 @@ class Parser:
 
     def parse_text(self, text: str):
 
-        self.output_debug("")
-        self.output_debug("PARSING:", text, "--------------------")
+        self.util.output_debug(
+            "PARSING:", text, "--------------------", debug_flag=self.debug)
 
         text = self.process_replacements(text)
         text = self.process_shortcuts(text)
@@ -120,8 +119,8 @@ class Parser:
         for phrase in self.parse_config["phrases"]:
 
             phrase_template = phrase["phrase"]
-            self.output_debug("")
-            self.output_debug(f"Analyzing '{phrase_template}'...")
+            self.util.output_debug(
+                f"ANALYZING: '{phrase_template}'...", debug_flag=self.debug)
 
             phrase_tokens = str.split(phrase_template)
 
@@ -179,8 +178,8 @@ class Parser:
                         phrase_idx += 1
 
                 else:
-                    self.output_debug(
-                        "..SKIP - token does not unify with phrase token")
+                    self.util.output_debug(
+                        "..SKIP - token does not unify with phrase token", debug_flag=self.debug, newline=False)
                     is_match = False
                     break
 
@@ -190,14 +189,14 @@ class Parser:
 
             # did not match all tokens
             if idx < len(tokens) - 1:
-                self.output_debug(
-                    "..SKIP: Sequence does not use all tokens in the input")
+                self.util.output_debug(
+                    "..SKIP: Sequence does not use all tokens in the input", debug_flag=self.debug, newline=False)
                 continue  # next phrase
 
             # did not match all pattern tokens
             if phrase_idx <= len(phrase_tokens) - 1:
-                self.output_debug(
-                    "..SKIP: Sequence does not use all tokens in the phrase pattern")
+                self.util.output_debug(
+                    "..SKIP: Sequence does not use all tokens in the phrase pattern", debug_flag=self.debug, newline=False)
                 continue  # next phrase
 
             # if we need to reformat the parse
@@ -221,7 +220,7 @@ class Parser:
 
         if len(result.keys()) == 0:
             return None
-        
+
         return result
 
     # parse_config = load_file("parsing.json")

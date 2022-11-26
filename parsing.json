@@ -12,6 +12,7 @@
 		{ "replace": ["se"], "with": "southeast" },
 		{ "replace": ["x"], "with": "examine" },
 		{ "replace": ["l"], "with": "examine" },
+		{ "replace": ["i"], "with": "inventory" },
 		{ "replace": ["look"], "with": "examine", "at-start-only": true },
 		{ "replace": ["get", "pick up"], "with": "take", "at-start-only": true },
 		{

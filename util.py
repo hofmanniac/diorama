@@ -61,3 +61,35 @@ class Util:
             return item
         else:
             return [item]
+
+    def output_debug(self, *args, debug_flag, newline=True):
+        if debug_flag == False:
+            return
+        # text = pformat(event)
+        if newline:
+            print("")
+        # text = colored(text, 'green')
+        # print(text)
+        print(*args)
+
+    def textify_list(self, items: list, conjunction="and"):
+
+        if items is None:
+            return ""
+
+        if len(items) == 1:
+            return self.get_text(items[0])
+
+        if len(items) == 2:
+            return self.get_text(items[0]) + " and " + self.get_text(items[1])
+
+        text = str.join(",", items[:-1])
+        text += ", " + conjunction + " " + self.get_text(items[-1])
+        return text
+
+    def get_text(self, item):
+        if type(item) is str:
+            return item
+        elif type(item) is dict:
+            if "text" in item:
+                return item["text"]

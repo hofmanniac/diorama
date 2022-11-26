@@ -9,6 +9,7 @@ class Diorama:
     scenes = []
     util = Util()
     viewpoint = None
+    debug = False
 
     def _load_from_file(self, filename) -> None:
         if filename is None:
@@ -16,14 +17,17 @@ class Diorama:
         with open(filename) as f:
             scene = json.load(f)
             self.scenes.append(scene)
+
             # print("LOADED:", filename)
-            viewpoint = self.find_item_by_name("player")
-            if viewpoint is None:
-                viewpoint = {"item": "player"}
+            self.viewpoint = self.find_item_by_name("player")
+
+            if self.viewpoint is None:
+
+                self.viewpoint = {"item": "player"}
                 first_location = self.find_items_by_template(
                     {"isa": "room"}, stop_after_first=True)
                 if first_location is not None:
-                    viewpoint["location"] = first_location["item"]
+                    self.viewpoint["location"] = first_location["item"]
 
                 if len(self.scenes) > 0:
                     first_scene = self.scenes[0]
@@ -32,9 +36,9 @@ class Diorama:
                     self.scenes = [first_scene]
 
                 if "items" in first_scene:
-                    first_scene["items"].append(viewpoint)
+                    first_scene["items"].append(self.viewpoint)
                 else:
-                    first_scene["items"] = [viewpoint]
+                    first_scene["items"] = [self.viewpoint]
 
     def evaluate(self, value):
 
@@ -173,45 +177,62 @@ class Diorama:
         if attribute_name in item:
             del item[attribute_name]
 
-    def find_item_by_name(self, name: str):
-        for scene in self.scenes:
-            for item in scene["items"]:
-                if item["item"] == name:
-                    return item
+    def find_item_by_name(self, name: str, from_viewpoint: dict = None):
+        search_items = self._get_search_items(from_viewpoint)
+        if search_items is None:
+            return None
+        for item in search_items:
+            if item["item"] == name:
+                return item
         return None
 
-    def find_items_by_fuzzy_match(self, name: str, stop_after_first: bool = False) -> Union[list, None]:
+    def _get_search_items(self, from_viewpoint: dict = None):
+        '''Searches all items for the specified viewpoint. If no viewpoint is specified,
+        then searches all items in all scenes.'''
+        if from_viewpoint is not None:
+            return self.get_viewpoint_items(from_viewpoint)
+        else:
+            items = []
+            for scene in self.scenes:
+                items = self.util.aggregate(items, scene["items"])
+            return items
+
+    def find_items_by_fuzzy_match(self, name: str, stop_after_first: bool = False, from_viewpoint: dict = None) -> Union[list, None]:
 
         items = None
 
         name = str.replace(name, "the ", "")
 
-        for scene in self.scenes:
+        search_items = self._get_search_items(from_viewpoint)
 
-            for item in scene["items"]:
+        for item in search_items:
 
-                if self.fuzzy_match(item, name):
-                    items = self.util.aggregate(items, item)
-                    if stop_after_first:
-                        return items
+            if self.fuzzy_match(item, name):
+                items = self.util.aggregate(items, item)
+                if stop_after_first:
+                    return items
 
-                if "aka" in item:
-                    for aka_item in item["aka"]:
-                        if str.lower(aka_item) == str.lower(name):
-                            items = self.util.aggregate(items, item)
-                            if stop_after_first:
-                                return items
+            if "aka" in item:
+                for aka_item in item["aka"]:
+                    if str.lower(aka_item) == str.lower(name):
+                        items = self.util.aggregate(items, item)
+                        if stop_after_first:
+                            return items
 
         return items
 
-    def find_items_by_template(self, template: dict, stop_after_first: bool = False) -> Union[list, dict, None]:
+    def find_items_by_template(self, template: dict, stop_after_first: bool = False, from_viewpoint: dict = None) -> Union[list, dict, None]:
+
         items = None
-        for scene in self.scenes:
-            for item in scene["items"]:
-                if self.util.unifies(template, item):
-                    if stop_after_first:
-                        return item
-                    items = self.util.aggregate(items, item)
+
+        search_items = self._get_search_items(from_viewpoint)
+
+        for item in search_items:
+            if self.util.unifies(template, item):
+                if stop_after_first:
+                    return item
+                items = self.util.aggregate(items, item)
+
         return items
 
     # def find_items_by_template(self, template: dict):
@@ -222,17 +243,24 @@ class Diorama:
     #                 items = self.util.aggregate(items, item)
     #     return items
 
-    def find_items_by_text(self, text: str) -> Union[list, None]:
+    def find_items_by_text(self, text: str, from_viewpoint: dict = None) -> Union[list, None]:
+        '''Find items that match by fuzzy match, by name, or by concept words.
+
+        Does not check for visiblity or other item properies.
+
+        By default, searches all items im all scenes. To search items for a viewpoint only,
+        set from_viewpoint.'''
 
         if text is None:
             return None
 
         # find item by fuzzy match (text and akas)
-        resolved_items = self.find_items_by_fuzzy_match(text)
+        resolved_items = self.find_items_by_fuzzy_match(
+            text, from_viewpoint=from_viewpoint)
 
         # find item by item name
         if resolved_items is None:
-            resolved_item = self.find_item_by_name(text)
+            resolved_item = self.find_item_by_name(text, from_viewpoint)
             resolved_items = self.util.listify(resolved_item)
 
         # try by word lookups e.g. {"word": "vehicle", "aka": ["car", "truck"]}
@@ -267,6 +295,8 @@ class Diorama:
         items = None
 
         concepts = self.find_concepts(text)
+        if concepts is None:
+            return None
 
         for concept in concepts:
             # find items that are this type of word (isa)
@@ -275,6 +305,18 @@ class Diorama:
             items = self.util.aggregate(items, sub_items)
 
         return items
+
+    def get_viewpoint_location(self, from_viewpoint: dict = None):
+
+        if from_viewpoint is None:
+            from_viewpoint = self.viewpoint
+
+        location_name = from_viewpoint["location"] if "location" in from_viewpoint else None
+        if location_name is not None:
+            location = self.find_item_by_name(location_name)
+            return location
+
+        return None
 
     def get_location_of(self, item_name: str):
 
@@ -381,25 +423,25 @@ class Diorama:
 
                     if type(new_concept["aka"]) is list:
                         if str.lower(text) in [str.lower(aka) for aka in new_concept["aka"]]:
-                            new_concept["matched-on"] = "singular"
+                            new_concept["matched-qty"] = "singular"
                             found = True
 
                     elif type(new_concept["aka"]) is str:
                         if str.lower(text) == str.lower(new_concept["aka"]):
-                            new_concept["matched-on"] = "singular"
+                            new_concept["matched-qty"] = "singular"
                             found = True
 
-                elif "akas" in new_concept:
+                if found == False and "akas" in new_concept:
 
                     if type(new_concept["akas"]) is list:
                         if str.lower(
                                 text) in [str.lower(aka) for aka in new_concept["akas"]]:
-                            new_concept["matched-on"] = "plural"
+                            new_concept["matched-qty"] = "plural"
                             found = True
 
                     elif type(new_concept["akas"]) is str:
                         if str.lower(text) == str.lower(new_concept["akas"]):
-                            new_concept["matched-on"] = "plural"
+                            new_concept["matched-qty"] = "plural"
                             found = True
 
                 if found:
@@ -407,3 +449,87 @@ class Diorama:
                     concepts = self.util.aggregate(concepts, new_concept)
 
         return concepts
+
+    def get_items_at_location(self, location):
+
+        if location is None:
+            return
+
+        items = None
+
+        for scene in self.scenes:
+            if "items" not in scene:
+                continue
+
+            scene_items = self.filter_items_in_location(
+                scene["items"], location)
+
+            if scene_items is None:
+                continue
+
+            items = self.util.aggregate(items, scene_items)
+
+            # recursion here to get items in and on items
+            for scene_item in scene_items:
+                scene_sub_items = self.get_items_at_location(scene_item)
+                items = self.util.aggregate(items, scene_sub_items)
+
+        return items
+
+    def get_viewpoint_items(self, from_viewpoint: dict = None):
+
+        if from_viewpoint is None:
+            from_viewpoint = self.viewpoint
+
+        items = []
+
+        # get items at the viewpoint's location
+        current_location = self.get_viewpoint_location(from_viewpoint)
+        location_items = self.get_items_at_location(current_location)
+        items = self.util.aggregate(items, location_items)
+
+        # get items in inventory for the viewpoint
+        inventory_items = self.find_items_by_template(
+            {"location": from_viewpoint})
+        items = self.util.aggregate(items, inventory_items)
+
+        items = self.filter_visible_items(items)
+
+        return items
+
+    def filter_visible_items(self, items: list):
+
+        if items is None:
+            return
+
+        results = []
+
+        for item in items:
+
+            visible = self.get_attribute(item, "visible", True)
+            if visible:
+                results = self.util.aggregate(results, item)
+
+        return results
+
+    def filter_items_in_location(self, items: list, location: dict):
+
+        if items is None or location is None:
+            return
+
+        results = None
+
+        for item in items:
+
+            if item["item"] == "player":
+                continue
+
+            relation = "location" if "location" in item else None
+            relation = "on" in "location" if relation is None and "on" in item else relation
+            relation = "in" in "location" if relation is None and "off" in item else relation
+
+            if relation in item:
+                if item[relation] == location["item"]:
+                    results = self.util.aggregate(results, item)
+
+        return results

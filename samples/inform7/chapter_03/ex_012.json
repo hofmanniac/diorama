@@ -2,15 +2,15 @@
 	"name": "Midsummer Day",
 
 	"items": [
-		{ "item": "player", "location": "garden" },
 		{
 			"item": "garden",
+			"isa": "room",
 			"text": "the garden",
 			"east": "gazebo",
 			"up": "treehouse"
 		},
-		{ "item": "gazebo" },
-		{ "item": "treehouse", "text": "the treehouse" },
+		{ "item": "gazebo", "isa": "room" },
+		{ "item": "treehouse", "isa": "room", "text": "the treehouse" },
 		{
 			"item": "billiards-table",
 			"text": "a billiards table",

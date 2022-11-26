@@ -8,6 +8,7 @@ class CoreActions:
 
     diorama = None
     util = Util()
+    debug = False
 
     def __init__(self, diorama: Diorama):
         self.diorama = diorama
@@ -17,7 +18,7 @@ class CoreActions:
         results = []
 
         # get the current location
-        location = self.diorama.get_location_of("player")
+        location = self.diorama.get_viewpoint_location()
         if location is None:
             return
 
@@ -64,25 +65,31 @@ class CoreActions:
         return results
 
     def describe_location_contents(self) -> list:
+
         # get the current location
-        location = self.diorama.get_location_of("player")
-        if location is None:
+        # location = self.diorama.get_viewpoint_location()
+        # if location is None:
+        #     return
+
+        # items = self.diorama.find_items_by_template(
+        #     {"location": location["item"]})
+
+        items = self.diorama.get_viewpoint_items()
+
+        if len(items) == 0:
             return
 
-        items = self.diorama.find_items_by_template(
-            {"location": location["item"]})
+        text = ""
+        for item in items:
+            if item["item"] == "player":
+                continue
+            item_name = item["text"] if "text" in item else item["item"]
+            text += item_name + ", "
+        text = str.removesuffix(text, ", ")
+        if len(text) > 0:
+            text = "you see " + text
 
-        if len(items) > 0:
-            text = ""
-            for item in items:
-                if item["item"] == "player":
-                    continue
-                item_name = item["text"] if "text" in item else item["item"]
-                text += item_name + ", "
-            text = str.removesuffix(text, ", ")
-            if len(text) > 0:
-                text = "you see " + text
-            return text
+        return text
 
     def process_enter(self, event):
 
@@ -90,7 +97,7 @@ class CoreActions:
         if destination_text is None:
             return
 
-        location = self.diorama.get_location_of("player")
+        location = self.diorama.get_viewpoint_location()
         if location is None:
             return
 
@@ -115,7 +122,7 @@ class CoreActions:
         # if origin_text is None:
         #     return
 
-        location = self.diorama.get_location_of("player")
+        location = self.diorama.get_viewpoint_location()
         if location is None:
             return
 
@@ -130,13 +137,14 @@ class CoreActions:
             return
 
         # get current location
-        location = self.diorama.get_location_of("player")
+        location = self.diorama.get_viewpoint_location()
         if location is None:
             return
 
         # check if the new direction is in the current location
         new_location_name = location[direction] if direction in location else None
-        new_location = self.diorama.find_item_by_name(new_location_name)
+        new_location = self.diorama.find_item_by_name(
+            new_location_name)
 
         # if not, check other scenes and items for cross-reference location
         if new_location_name is None:
@@ -203,23 +211,62 @@ class CoreActions:
 
     def process_take(self, event: dict):
 
-        # check if item is portable
-        item = event["item"]
+        results = None
 
-        # if item is portable
-        portable = self.diorama.get_attribute(item, "portable", False)
-        if portable:
-            # then change location to player
-            self.diorama.set_attribute(item, "location", "player")
+        items = self.util.listify(event["item"])
 
-            # remove previous location (on, in, etc.)
-            self.diorama.remove_attribute(item, "on")
-            self.diorama.remove_attribute(item, "in")
+        items_taken = []
+        items_not_portable = []
 
-            # report success
-            return "taken."
+        for item in items:
 
-        return "it won't budge."
+            # if item is portable
+            portable = self.diorama.get_attribute(item, "portable", False)
+            if portable:
+                # then change location to player
+                self.diorama.set_attribute(item, "location", "player")
+
+                # remove previous location (on, in, etc.)
+                self.diorama.remove_attribute(item, "on")
+                self.diorama.remove_attribute(item, "in")
+
+                # report success
+                items_taken = self.util.aggregate(items_taken, item)
+            else:
+                self.util.output_debug(
+                    "TAKE: Item is not portable.", debug_flag=self.debug)
+                items_not_portable = self.util.aggregate(
+                    items_not_portable, item)
+
+        text = ""
+        if len(items_taken) > 0:
+            text = "You take " + self.util.textify_list(items_taken) + "."
+            results = self.util.aggregate(results, text)
+
+        if len(items_not_portable) > 0:
+            text = self.util.textify_list(items_not_portable) + " won't budge."
+            text = str.replace(" " + text, " a ", " the ")
+            text = str.replace(" " + text, " A ", " The ")
+
+            results = self.util.aggregate(results, text)
+
+        return results
+
+    def process_inventory(self, event):
+
+        names = None
+        items = self.diorama.find_items_by_template({"location": "player"})
+        if items is None:
+            return "You are empty handed."
+
+        for item in items:
+            if "text" in item:
+                names = self.util.aggregate(names, item["text"])
+
+        if len(names) > 0:
+            text = self.util.textify_list(names)
+            text = "You are carrying: " + text
+            return text
 
     def process_examine(self, event):
 
