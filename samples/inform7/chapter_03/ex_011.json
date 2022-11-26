@@ -1,76 +1,70 @@
 {
-  "name": "First Name Basis",
+	"name": "First Name Basis",
 
-  "items": [
-    { "item": "player", "location": "crew-lounge" },
+	"concepts": [
+		{
+			"concept": "man",
+			"aka": ["man", "guy", "chap", "lad", "male"],
+			"akas": ["men", "chaps", "lads", "guys", "males"]
+		}
+	],
 
-    {
-      "item": "crew-lounge",
-      "text": "The Crew Lounge",
-      "description": "Deliberately spartan: the crew feels weight restrictions here first, so there aren't any chairs, just a few thin pads on the ground."
-    },
+	"items": [
+		{
+			"item": "crew-lounge",
+			"text": "The Crew Lounge",
+			"description": "Deliberately spartan: the crew feels weight restrictions here first, so there aren't any chairs, just a few thin pads on the ground."
+		},
 
-    {
-      "item": "projector",
-      "text": "The holographic Projector",
-      "location": "crew-lounge",
-      "aka": ["holo", "holograph", "misthon", "9000"],
-      "on": false,
-      "description": "The one major source of entertainment is the holographic projector, a top of the line Misthon 9000, on which you view every beam you can get.",
-      "effects": [
-        {
-          "action": "examine",
-          "if": "projector.on",
-          "equals": true,
-          "do": "The projector is now playing a documentary about the early politics of the Mars colony.",
-          "else": "The air above the projector is disappointingly clear."
-        },
-        {
-          "action": "turn on",
-          "if": "projector.on",
-          "equals": false,
-          "do": {
-            "action": "set",
-            "item": "projector.on",
-            "to": true
-          }
-        },
-        {
-          "action": "turn off",
-          "if": "projector.on",
-          "equals": true,
-          "do": {
-            "action": "set",
-            "item": "projector.on",
-            "to": false
-          }
-        }
-      ]
-    },
+		{
+			"item": "projector",
+			"text": "The holographic Projector",
+			"location": "crew-lounge",
+			"aka": ["holo", "holograph", "misthon", "9000"],
+			"on": false,
+			"description": "The one major source of entertainment is the holographic projector, a top of the line Misthon 9000, on which you view every beam you can get.",
+			"effects": [
+				{
+					"action": "examine",
+					"if": "projector.on",
+					"equals": true,
+					"do": "The projector is now playing a documentary about the early politics of the Mars colony.",
+					"else": "The air above the projector is disappointingly clear."
+				},
+				{
+					"action": "turn on",
+					"if": "projector.on",
+					"equals": false,
+					"do": {
+						"action": "set",
+						"item": "projector.on",
+						"to": true
+					}
+				},
+				{
+					"action": "turn off",
+					"if": "projector.on",
+					"equals": true,
+					"do": {
+						"action": "set",
+						"item": "projector.on",
+						"to": false
+					}
+				}
+			]
+		},
 
-    {
-      "item": "lewis",
-      "isa": "man",
-      "location": "crew-lounge",
-      "description": "A wiry, excitable engineer who just signed aboard last week."
-    },
-    {
-      "item": "harper",
-      "isa": "man",
-      "location": "crew-lounge",
-      "description": "Harper's a good guy: taciturn when sober, affectionate when drunk, but rarely annoying in either state."
-    }
-  ],
-
-  "words": [
-    {
-      "word": "man",
-      "aka": ["guy", "chap", "lad", "male"]
-    },
-    {
-      "word": "men",
-      "aka": ["chaps", "lads", "guys", "males"],
-      "plural-of": "man"
-    }
-  ]
+		{
+			"item": "lewis",
+			"isa": "man",
+			"location": "crew-lounge",
+			"description": "A wiry, excitable engineer who just signed aboard last week."
+		},
+		{
+			"item": "harper",
+			"isa": "man",
+			"location": "crew-lounge",
+			"description": "Harper's a good guy: taciturn when sober, affectionate when drunk, but rarely annoying in either state."
+		}
+	]
 }

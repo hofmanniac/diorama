@@ -1,3 +1,4 @@
+from typing import Union
 from util import Util
 from copy import deepcopy
 import json
@@ -9,13 +10,31 @@ class Diorama:
     util = Util()
     viewpoint = None
 
-    def load_from_file(self, filename) -> None:
+    def _load_from_file(self, filename) -> None:
         if filename is None:
             return
         with open(filename) as f:
             scene = json.load(f)
             self.scenes.append(scene)
             # print("LOADED:", filename)
+            viewpoint = self.find_item_by_name("player")
+            if viewpoint is None:
+                viewpoint = {"item": "player"}
+                first_location = self.find_items_by_template(
+                    {"isa": "room"}, stop_after_first=True)
+                if first_location is not None:
+                    viewpoint["location"] = first_location["item"]
+
+                if len(self.scenes) > 0:
+                    first_scene = self.scenes[0]
+                else:
+                    first_scene = {"name": "default"}
+                    self.scenes = [first_scene]
+
+                if "items" in first_scene:
+                    first_scene["items"].append(viewpoint)
+                else:
+                    first_scene["items"] = [viewpoint]
 
     def evaluate(self, value):
 
@@ -53,6 +72,18 @@ class Diorama:
             return results[0]
         else:
             return results
+
+    def collect_actions(self):
+        actions = None
+        for scene in self.scenes:
+            for item in scene["items"]:
+                if "effects" not in item:
+                    continue
+                for effect in item["effects"]:
+                    action = effect["action"] if "action" in effect else None
+                    if action is not None:
+                        actions = self.util.aggregate(actions, action)
+        return actions
 
     def evaluate_text(self, text: str):
 
@@ -132,7 +163,7 @@ class Diorama:
             return  # loop here instead?
 
         if type(item) is str:
-            item = self.find_item_by_text(item)
+            item = self.find_item_by_name(item)
             if item is None:
                 return
 
@@ -149,55 +180,66 @@ class Diorama:
                     return item
         return None
 
-    def find_item_by_fuzzy_match(self, name: str):
+    def find_items_by_fuzzy_match(self, name: str, stop_after_first: bool = False) -> Union[list, None]:
+
+        items = None
+
         name = str.replace(name, "the ", "")
+
         for scene in self.scenes:
+
             for item in scene["items"]:
+
                 if self.fuzzy_match(item, name):
-                    return item
+                    items = self.util.aggregate(items, item)
+                    if stop_after_first:
+                        return items
+
                 if "aka" in item:
                     for aka_item in item["aka"]:
                         if str.lower(aka_item) == str.lower(name):
-                            return item
-        return None
+                            items = self.util.aggregate(items, item)
+                            if stop_after_first:
+                                return items
 
-    def find_item_by_template(self, template: dict):
-        for scene in self.scenes:
-            for item in scene["items"]:
-                if self.util.unifies(template, item):
-                    return item
-        return None
-
-    def find_items_by_template(self, template: dict):
-        items = []
-        for scene in self.scenes:
-            for item in scene["items"]:
-                if self.util.unifies(template, item):
-                    items.append(item)
         return items
 
-    def find_item_by_text(self, text: str):
+    def find_items_by_template(self, template: dict, stop_after_first: bool = False) -> Union[list, dict, None]:
+        items = None
+        for scene in self.scenes:
+            for item in scene["items"]:
+                if self.util.unifies(template, item):
+                    if stop_after_first:
+                        return item
+                    items = self.util.aggregate(items, item)
+        return items
+
+    # def find_items_by_template(self, template: dict):
+    #     items = None
+    #     for scene in self.scenes:
+    #         for item in scene["items"]:
+    #             if self.util.unifies(template, item):
+    #                 items = self.util.aggregate(items, item)
+    #     return items
+
+    def find_items_by_text(self, text: str) -> Union[list, None]:
 
         if text is None:
-            return None, None
+            return None
 
         # find item by fuzzy match (text and akas)
-        resolved_item = self.find_item_by_fuzzy_match(text)
+        resolved_items = self.find_items_by_fuzzy_match(text)
 
         # find item by item name
-        if resolved_item is None:
+        if resolved_items is None:
             resolved_item = self.find_item_by_name(text)
-
-        # # pull name out of resolved
-        # if resolved_item is not None:
-        #     resolved_item = resolved_item["item"]
+            resolved_items = self.util.listify(resolved_item)
 
         # try by word lookups e.g. {"word": "vehicle", "aka": ["car", "truck"]}
-        if resolved_item is None:
-            resolved_item, effect = self.find_items_by_word(text)
-            return resolved_item, effect
+        if resolved_items is None:
+            resolved_items = self.find_items_by_concept(text)
 
-        return resolved_item, None
+        return resolved_items
 
     def fuzzy_match(self, item: dict, keyword_text: str):
 
@@ -220,50 +262,19 @@ class Diorama:
 
         return False
 
-    def find_items_by_word(self, text: str):
-
-        if "words" not in self.scenes:
-            return None, None
+    def find_items_by_concept(self, text: str):
 
         items = None
-        effects = None
 
-        for scene in self.scenes:
+        concepts = self.find_concepts(text)
 
-            for word in scene["words"]:
+        for concept in concepts:
+            # find items that are this type of word (isa)
+            sub_items = self.find_items_by_template(
+                {"isa": concept["concept"]})
+            items = self.util.aggregate(items, sub_items)
 
-                word_text = word["word"]
-
-                search_for_word = True if str.lower(
-                    word_text) == str.lower(text) else False
-
-                if search_for_word == False and "aka" in word:
-                    if type(word["aka"]) is list:
-                        search_for_word = True if str.lower(
-                            text) in [str.lower(aka) for aka in word["aka"]] else False
-                    elif type(word["aka"]) is str:
-                        search_for_word = True if str.lower(
-                            text) == str.lower(word["aka"]) else False
-
-                if search_for_word:
-
-                    if "plural-of" in word:
-                        word_text = word["plural-of"]
-
-                    # find items that are this type of word (isa)
-                    sub_items = self.find_items_by_template({"isa": word_text})
-                    if sub_items is None:
-                        continue
-
-                    # check if we found multiple matches for singular word
-                    if len(sub_items) > 1 and "plural-of" not in word:
-                        return None, {"ask": "Which " + text + "?"}
-
-                    # else keep collecting all matched items
-                    else:
-                        items = self.util.aggregate(items, sub_items)
-
-        return items, effects
+        return items
 
     def get_location_of(self, item_name: str):
 
@@ -300,8 +311,99 @@ class Diorama:
         return effects
 
     def enhance_item_with_concept_info(self, item):
-        
+        '''Enhances the item with conceptual information from the isa hiearchy. This 
+        function will return a copy of the item, to avoid modifying the original.'''
+
+        # if there is no isa information, then just return
+        isa = item["isa"] if "isa" in item else None
+        if isa is None:
+            return item
+
+        # make a copy of the original, to prevent from storing all the hiearchy
+        # information back in the original item
+        enhanced_item = deepcopy(item)
+
         # for all concepts
-        
-        # 
-        pass
+        for scene in self.scenes:
+
+            # if not concepts defined in this scene, then move to the next one
+            if "concepts" not in scene:
+                continue
+
+            for concept in scene["concepts"]:
+
+                # if this is the concept we want
+                if concept["concept"] != isa:
+                    continue
+
+                 # walk up the parent isa hierarchy (recursive)
+                 # to get properties
+                if "isa" in concept:
+                    concept = self.enhance_item_with_concept_info(
+                        concept)
+
+                # now add properties not already in the item
+                for concept_key in concept:
+
+                    # special properties for the concept itself
+                    if concept_key in ["concept", "isa", "aka", "akas"]:
+                        continue
+
+                    # if the concept property is not already in the item
+                    if concept_key not in enhanced_item:
+                        enhanced_item[concept_key] = concept[concept_key]
+                    else:
+                        # consider merge cases (like effects)
+                        pass
+
+        return enhanced_item
+
+    def find_concepts(self, text):
+
+        concepts = None
+
+        for scene in self.scenes:
+
+            if "concepts" not in scene:
+                continue
+
+            for concept in scene["concepts"]:
+
+                new_concept = deepcopy(concept)
+
+                found = False
+
+                if str.lower(new_concept["concept"]) == str.lower(text):
+                    new_concept["matched-qty"] = "singular"
+                    found = True
+
+                elif "aka" in new_concept:
+
+                    if type(new_concept["aka"]) is list:
+                        if str.lower(text) in [str.lower(aka) for aka in new_concept["aka"]]:
+                            new_concept["matched-on"] = "singular"
+                            found = True
+
+                    elif type(new_concept["aka"]) is str:
+                        if str.lower(text) == str.lower(new_concept["aka"]):
+                            new_concept["matched-on"] = "singular"
+                            found = True
+
+                elif "akas" in new_concept:
+
+                    if type(new_concept["akas"]) is list:
+                        if str.lower(
+                                text) in [str.lower(aka) for aka in new_concept["akas"]]:
+                            new_concept["matched-on"] = "plural"
+                            found = True
+
+                    elif type(new_concept["akas"]) is str:
+                        if str.lower(text) == str.lower(new_concept["akas"]):
+                            new_concept["matched-on"] = "plural"
+                            found = True
+
+                if found:
+
+                    concepts = self.util.aggregate(concepts, new_concept)
+
+        return concepts

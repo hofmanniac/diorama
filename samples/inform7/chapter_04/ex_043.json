@@ -27,10 +27,21 @@
 	"items": [
 		{
 			"item": "wine-emporium",
+			"isa": "room",
 			"name": "The Wine Emporium",
 			"description": "Set aside, you rather suspect, for tourists: this chamber is barrel-vaulted stone, lined on each side with casks of aging wine. Discarded brochures here and there advertise Wine Tours of the Loire Valley in three different languages, none of them French."
 		},
-		{ "item": "vouray-cask", "isa": "cask", "location": "wine-emporium" },
-		{ "item": "muscadet-cask", "isa": "cask", "location": "wine-emporium" }
+		{
+			"item": "vouray-cask",
+			"text": "A Vouray Cask",
+			"isa": "cask",
+			"location": "wine-emporium"
+		},
+		{
+			"item": "muscadet-cask",
+			"text": "A Muscadet cask",
+			"isa": "cask",
+			"location": "wine-emporium"
+		}
 	]
 }

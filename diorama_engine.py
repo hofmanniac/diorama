@@ -20,6 +20,28 @@ class DioramaEngine:
     def __init__(self) -> None:
         pass
 
+    def load_scene(self, filename):
+        self.diorama._load_from_file(filename)
+        self._sync_actions_to_parser()
+
+    def load_parser(self, filename):
+        self.parser._load_from_file(filename)
+        self._sync_actions_to_parser()
+
+    def _sync_actions_to_parser(self):
+
+        if self.parser is None:
+            return
+
+        actions = ["go", "enter", "exit", "say",
+                   "set", "examine", "take", "print"]
+
+        if self.diorama is not None:
+            scene_actions = self.diorama.collect_actions()
+            actions = self.util.aggregate(actions, scene_actions)
+
+        self.parser.set_word_category("#action", actions)
+
     def process_item_effects(self, event) -> list:
 
         effects = []
@@ -120,7 +142,7 @@ class DioramaEngine:
                 action_effects = self.core_actions.process_take(event)
             elif event["action"] == "print":
                 action_effects = self.core_actions.process_print(event)
-                
+
             if action_effects is None:
                 action_effects = []
 
@@ -159,24 +181,43 @@ class DioramaEngine:
                 if input_event[key] == "#":
                     input_event[key] = text
 
+        if input_event is None:
+            return "I don't quite understand that, could you rephrase?"
+
         # if there is an item, try to resolve it
         if "item" in input_event:
 
             # try to resolve the item referenced
             item_text = input_event["item"]
-            resolved_item, effect = self.diorama.find_item_by_text(item_text)
+            resolved_items = self.diorama.find_items_by_text(item_text)
 
-            # if not able to resolve because a new ask occured (need more info to continue)
-            if effect is not None and "ask" in effect:
-                input_event["item"] = "#"
-                effect["place-answer-into"] = input_event
-                return effect
-
-            # if item is still not resolved
-            if resolved_item is None:
+            # if item is not resolved
+            if resolved_items is None:
                 return "I don't see anything like that."
 
-            input_event["item"] = resolved_item
+            # check if we found multiple matches for a singular word
+            # return for clarification on which one to use
+            if resolved_items is not None and len(resolved_items) > 1:
+                concepts = self.diorama.find_concepts(item_text)
+                concept = concepts[0] if concepts is not None else None
+                if (concept is None) or (concept is not None and concept["matched-qty"] == "singular"):
+                    input_event["item"] = "#"
+                    return {"ask": "Which one?", "place-answer-into": input_event}
+
+            # enhance the items with conceptual information (from isa property)
+            enhanced_items = []
+            for resolved_item in resolved_items:
+                # todo - if next items same concept as previous, could speed this up
+                enhanced_item = self.diorama.enhance_item_with_concept_info(
+                    resolved_item)
+                enhanced_items = self.util.aggregate(
+                    enhanced_items, enhanced_item)
+
+            # reduce to a single item if possible
+            if len(enhanced_items) == 1:
+                enhanced_items = enhanced_items[0]
+
+            input_event["item"] = enhanced_items
 
         # now assert the action
         if "action" in input_event:

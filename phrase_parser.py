@@ -11,12 +11,16 @@ class Parser:
         if self.debug:
             print(*args)
 
-    def load_from_file(self, filename):
+    def _load_from_file(self, filename):
         if filename is None:
             return
         with open(filename) as file:
             file_contents = json.load(file)
             self.parse_config = file_contents
+
+    def set_word_category(self, category_name, words: list):
+        word_categories = self.parse_config["word-categories"]
+        word_categories[category_name] = words
 
     def find_word_categories(self, token: str) -> list:
 
@@ -105,7 +109,7 @@ class Parser:
 
     def parse_text(self, text: str):
 
-        self.output_debug(self, "")
+        self.output_debug("")
         self.output_debug("PARSING:", text, "--------------------")
 
         text = self.process_replacements(text)
@@ -215,6 +219,9 @@ class Parser:
             # since this is a match, we can just return now
             break
 
+        if len(result.keys()) == 0:
+            return None
+        
         return result
 
     # parse_config = load_file("parsing.json")

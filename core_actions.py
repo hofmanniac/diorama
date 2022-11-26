@@ -81,7 +81,7 @@ class CoreActions:
                 text += item_name + ", "
             text = str.removesuffix(text, ", ")
             if len(text) > 0:
-                text = "\nyou see " + text
+                text = "you see " + text
             return text
 
     def process_enter(self, event):
@@ -159,8 +159,8 @@ class CoreActions:
             cross_direction = "inside" if direction == "outside" and cross_direction == None else cross_direction
             cross_direction = "outside" if direction == "inside" and cross_direction == None else cross_direction
 
-            new_location = self.diorama.find_item_by_template(
-                {cross_direction: location["item"]})
+            new_location = self.diorama.find_items_by_template(
+                {cross_direction: location["item"]}, stop_after_first=True)
 
             if new_location is not None:
                 new_location_name = new_location["item"]
