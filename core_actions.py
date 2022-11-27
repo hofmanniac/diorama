@@ -168,7 +168,9 @@ class CoreActions:
 
             new_location = deepcopy(new_location_prop)
 
-            # todo - use diorama to instatiate the new location
+            # instantiate the new location
+            new_location = self.diorama.enhance_item_with_concept_info(
+                new_location)
 
             # set the cross direction to the current location
             # (so the actor can return)
