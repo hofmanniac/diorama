@@ -154,6 +154,10 @@ class DioramaEngine:
             event_queue = self.util.aggregate(event_queue, sub_effects)
 
     def resolve_and_enhance_item(self, item_text: dict) -> Union[None, dict, list]:
+        '''Resolves text into item(s) in the world. Filters out invisible items. 
+        Adds conceptual information if available. 
+
+        If multiple items are found, returns a list. If only one item is found, returns a dict. If no item is found, returns None.'''
 
         # try to resolve the item referenced
         resolved_items = self.diorama.find_items_by_text(

@@ -23,7 +23,8 @@ def test_engine():
     # diorama_engine.diorama.load_file("samples/inform7/chapter_03/ex_011.json")
 
     # file = "samples/inform7/chapter_03/ex_012.json"
-    file = "samples/inform7/chapter_04/ex_043.json"
+    # file = "samples/inform7/chapter_04/ex_043.json"
+    file = "samples/inform7/chapter_04/ch04_02.json"
 
     diorama_engine.load_scene(file)
 

@@ -1,7 +1,7 @@
 from pprint import pprint
 from diorama import Diorama
 from util import Util
-# from copy import deepcopy
+from copy import deepcopy
 
 
 class CoreActions:
@@ -22,7 +22,9 @@ class CoreActions:
         if location is None:
             return
 
-        location_text = location["text"] if "text" in location else location["item"]
+        location_text = location["text"] if "text" in location else None
+        if location_text is None:
+            location_text = location["item"] if "item" in location else ""
         results = self.util.aggregate(
             results, "you are in " + location_text + ":\n")
 
@@ -37,6 +39,7 @@ class CoreActions:
                 description = self.diorama.evaluate(location["description"])
                 results = self.util.aggregate(results, description)
 
+        # todo - keep track of this in the actor or in a list, to support multiple actors
         location["visited"] = True
 
         # describe items in the location
@@ -121,6 +124,29 @@ class CoreActions:
         exit_location = location["location"]
         self.diorama.set_attribute("player", "location", exit_location)
 
+    def get_cross_direction(self, direction: str):
+
+        cross_direction = None
+
+        cross_direction = "south" if direction == "north" and cross_direction == None else cross_direction
+        cross_direction = "north" if direction == "south" and cross_direction == None else cross_direction
+        cross_direction = "east" if direction == "west" and cross_direction == None else cross_direction
+        cross_direction = "west" if direction == "east" and cross_direction == None else cross_direction
+
+        cross_direction = "northeast" if direction == "southwest" and cross_direction == None else cross_direction
+        cross_direction = "southwest" if direction == "northeast" and cross_direction == None else cross_direction
+
+        cross_direction = "northwest" if direction == "southeast" and cross_direction == None else cross_direction
+        cross_direction = "southeast" if direction == "northwest" and cross_direction == None else cross_direction
+
+        cross_direction = "up" if direction == "down" and cross_direction == None else cross_direction
+        cross_direction = "down" if direction == "up" and cross_direction == None else cross_direction
+
+        cross_direction = "inside" if direction == "outside" and cross_direction == None else cross_direction
+        cross_direction = "outside" if direction == "inside" and cross_direction == None else cross_direction
+
+        return cross_direction
+
     def process_go(self, event):
 
         # which direction should we try to go?
@@ -134,68 +160,67 @@ class CoreActions:
             return
 
         # check if the new direction is in the current location
-        new_location_name = location[direction] if direction in location else None
-        new_location = self.diorama.find_item_by_name(
-            new_location_name)
+        new_location_prop = location[direction] if direction in location else None
+        new_location = None
 
-        # if not, check other scenes and items for cross-reference location
-        if new_location_name is None:
+        # if the new location is an anonymous object
+        if type(new_location_prop) is dict:
 
-            cross_direction = None
-            cross_direction = "south" if direction == "north" and cross_direction == None else cross_direction
-            cross_direction = "north" if direction == "south" and cross_direction == None else cross_direction
-            cross_direction = "east" if direction == "west" and cross_direction == None else cross_direction
-            cross_direction = "west" if direction == "east" and cross_direction == None else cross_direction
+            new_location = deepcopy(new_location_prop)
 
-            cross_direction = "northeast" if direction == "southwest" and cross_direction == None else cross_direction
-            cross_direction = "southwest" if direction == "northeast" and cross_direction == None else cross_direction
+            # todo - use diorama to instatiate the new location
 
-            cross_direction = "northwest" if direction == "southeast" and cross_direction == None else cross_direction
-            cross_direction = "southeast" if direction == "northwest" and cross_direction == None else cross_direction
+            # set the cross direction to the current location
+            # (so the actor can return)
+            cross_direction = self.get_cross_direction(direction)
+            new_location[cross_direction] = location["item"]
+            if "item" not in new_location:
+                new_location["item"] = "#" + location["item"] + "-" + direction
 
-            cross_direction = "up" if direction == "down" and cross_direction == None else cross_direction
-            cross_direction = "down" if direction == "up" and cross_direction == None else cross_direction
+        # otherwise the new location is a named location
+        elif type(new_location_prop) is str:
 
-            cross_direction = "inside" if direction == "outside" and cross_direction == None else cross_direction
-            cross_direction = "outside" if direction == "inside" and cross_direction == None else cross_direction
+            new_location = self.diorama.find_item_by_name(
+                new_location_prop)
 
-            new_location = self.diorama.find_items_by_template(
-                {cross_direction: location["item"]}, stop_after_first=True)
+            # if not, check other scenes and items for cross-reference location
+            if new_location is None:
 
-            if new_location is not None:
-                new_location_name = new_location["item"]
+                cross_direction = self.get_cross_direction(direction)
 
-        if new_location_name is not None and new_location is not None:
+                new_location = self.diorama.find_items_by_template(
+                    {cross_direction: location["item"]}, stop_after_first=True)
 
-            effects = []
-
-            # process going to location effects
-            # todo - refactor this
-            if "effects" in new_location:
-                for effect in new_location["effects"]:
-                    if self.util.unifies(effect, event):
-                        do_effects = None
-                        if type(effect["do"]) is list:
-                            do_effects = effect["do"]
-                        else:
-                            do_effects = [effect["do"]]
-
-                        for do_effect in do_effects:
-                            sub_effects = self.diorama.evaluate(do_effect)
-                            effects = self.util.aggregate(effects, sub_effects)
-
-            # move the player there
-            self.diorama.set_attribute(
-                "player", "location", new_location_name)
-
-            # new_location_text = new_location_name["text"] if "text" in new_location else new_location_name
-            # self.util.aggregate(effects, new_location_text)
-            description = self.describe_current_scene()
-            self.util.aggregate(effects, description)
-
-            return effects
-        else:
+        # if we were able unable to resolve the new location
+        if new_location is None:
             return ["You can't go in that direction."]
+
+        # accumulate the effects of this action
+        effects = []
+
+        # process going to location effects
+        if "effects" in new_location:
+            for effect in new_location["effects"]:
+                if not self.util.unifies(effect, event):
+                    continue
+                do_effects = None
+                do_effects = self.util.listify(effect["do"])
+                for do_effect in do_effects:
+                    sub_effects = self.diorama.evaluate(do_effect)
+                    effects = self.util.aggregate(effects, sub_effects)
+
+        # move the actor there
+        if type(new_location_prop) is str:
+            self.diorama.set_attribute(
+                "player", "location", new_location["item"])
+        elif type(new_location_prop) is dict:
+            self.diorama.set_attribute("player", "location", new_location)
+
+        # describe the current scene at this new location
+        description = self.describe_current_scene()
+        self.util.aggregate(effects, description)
+
+        return effects
 
     def process_say(self, event: dict):
         # self.output_text(event["text"])

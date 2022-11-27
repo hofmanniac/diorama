@@ -329,17 +329,23 @@ class Diorama:
 
         return items
 
-    def get_viewpoint_location(self, from_viewpoint: dict = None):
+    def get_viewpoint_location(self, from_viewpoint: dict = None) -> Union[dict, None]:
 
+        # if not viewpoint was provided, assume it's the default viewpoint
         if from_viewpoint is None:
             from_viewpoint = self.viewpoint
 
-        location_name = from_viewpoint["location"] if "location" in from_viewpoint else None
-        if location_name is not None:
-            location = self.find_item_by_name(location_name)
-            return location
+        # get the viewpoint location - this will either be the name of the location,
+        # or will be a location object - typically set inline through anonymous room syntax
+        location_prop = from_viewpoint["location"] if "location" in from_viewpoint else None
+        if location_prop is None:
+            return None
 
-        return None
+        if type(location_prop) is str:
+            location = self.find_item_by_name(location_prop)
+            return location
+        else:
+            return location_prop
 
     def get_location_of(self, item_name: str):
 
@@ -425,13 +431,13 @@ class Diorama:
 
     def find_concept(self, text):
         '''Find the highest scoring concept for the given text'''
-        
+
         top_concept = None
-        
+
         concepts = self.find_concepts(text)
         if concepts is None:
             return None
-        
+
         top_score = 0
         for concept in concepts:
             if concept["match-score"] > top_score:
