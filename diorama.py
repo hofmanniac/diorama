@@ -422,7 +422,14 @@ class Diorama:
 
                     # if the concept property is not already in the item
                     if concept_key not in enhanced_item:
-                        enhanced_item[concept_key] = concept[concept_key]
+
+                        concept_key_value = concept[concept_key]
+
+                        if type(concept_key_value) is dict:
+                            if "default" in concept_key_value:
+                                concept_key_value = concept_key_value["default"]
+
+                        enhanced_item[concept_key] = concept_key_value
                     else:
                         # consider merge cases (like effects)
                         pass
